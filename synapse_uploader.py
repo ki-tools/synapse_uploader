@@ -23,12 +23,12 @@ class SynapseUploader:
 
     def __init__(self, synapse_project, local_path, remote_path=None):
         self._synapse_project = synapse_project
-        self._local_path = local_path.rstrip('/')
+        self._local_path = local_path.rstrip(os.sep)
         self._remote_path = None
         self._synapse_folders = {}
         
         if remote_path != None and len(remote_path.strip()) > 0:
-            self._remote_path = remote_path.strip().lstrip('/').rstrip('/')
+            self._remote_path = remote_path.strip().lstrip(os.sep).rstrip(os.sep)
             if len(self._remote_path) == 0:
                 self._remote_path = None
 
@@ -59,7 +59,7 @@ class SynapseUploader:
         else:
             return os.path.join(self._synapse_project
                                 ,(self._remote_path if self._remote_path else '')
-                                ,local_path.replace(self._local_path + '/', '')
+                                ,local_path.replace(self._local_path + os.sep, '')
                                 )
 
 
@@ -73,7 +73,7 @@ class SynapseUploader:
         folder_name = os.path.basename(full_synapse_path)
 
         print('  -> {0}'.format(full_synapse_path))
-        synapse_folder = self._synapse_client.store(Folder(folder_name, parent=synapse_parent))
+        synapse_folder = self._synapse_client.store(Folder(folder_name, parent=synapse_parent), forceVersion=False)
     
         self.set_synapse_folder(full_synapse_path, synapse_folder)
 
@@ -87,7 +87,7 @@ class SynapseUploader:
         synapse_parent = self.get_synapse_folder(synapse_parent_path)
         
         print('  -> {0}'.format(full_synapse_path))
-        self._synapse_client.store(File(local_file, parent=synapse_parent))
+        self._synapse_client.store(File(local_file, parent=synapse_parent), forceVersion=False)
 
 
 
@@ -106,7 +106,7 @@ class SynapseUploader:
         # Create the remote_path if specified.
         if self._remote_path != None:
             full_path = ''
-            for folder in filter(None, self._remote_path.split('/')):
+            for folder in filter(None, self._remote_path.split(os.sep)):
                 full_path = os.path.join(full_path, folder)
                 self.create_directory_in_synapse(full_path, virtual_path=True)
 
