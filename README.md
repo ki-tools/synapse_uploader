@@ -20,8 +20,20 @@ $ chmod u+x *.py
 
 ## Usage
 
-```bash
-./synapse_uploader.py <project-id> <local-folder-path> [remote-folder-path]
+```text
+usage: synapse_uploader.py [-h] [-r REMOTE_FOLDER_PATH] [-d]
+                           project-id local-folder-path
+
+positional arguments:
+  project-id            Synapse Project ID to upload to (e.g., syn123456789).
+  local-folder-path     Path of the local folder to upload.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -r REMOTE_FOLDER_PATH, --remote-folder-path REMOTE_FOLDER_PATH
+                        Folder to upload to in Synapse.
+  -d, --dry-run         Dry run only. Do not upload any folders or files.
+
 ```
 
 ## Examples
@@ -33,7 +45,7 @@ Upload all the folders and files in `~/my_study` to your Project ID `syn123456`:
 
 Upload all the folders and files in `~/my_study` to your Project ID `syn123456` in the `drafts/my_study` folder:
 
-- Linux: `./synapse_uploader.py syn123456 ~/my_study drafts/my_study`
-- Windows: `synapse_uploader.py syn123456 %USERPROFILE%\my_study drafts\my_study`
+- Linux: `./synapse_uploader.py syn123456 ~/my_study -r drafts/my_study`
+- Windows: `synapse_uploader.py syn123456 %USERPROFILE%\my_study -r drafts\my_study`
 
 > Note: The correct path separator (`\` for Windows and `/` for Linux) must be used in both the `local-folder-path` and the `remote-folder-path`.
