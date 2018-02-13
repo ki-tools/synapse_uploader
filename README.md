@@ -29,11 +29,11 @@ $ chmod u+x *.py
 Upload all the folders and files in `~/my_study` to your Project ID `syn123456`:
 
 - Linux: `./synapse_uploader.py syn123456 ~/my_study`
-- Windows: `synapse_uploader.py syn123456 C:\my_study`
+- Windows: `synapse_uploader.py syn123456 %USERPROFILE%\my_study`
 
 Upload all the folders and files in `~/my_study` to your Project ID `syn123456` in the `drafts/my_study` folder:
 
 - Linux: `./synapse_uploader.py syn123456 ~/my_study drafts/my_study`
-- Windows: `synapse_uploader.py syn123456 C:\my_study drafts\my_study`
+- Windows: `synapse_uploader.py syn123456 %USERPROFILE%\my_study drafts\my_study`
 
 > Note: The correct path separator (`\` for Windows and `/` for Linux) must be used in both the `local-folder-path` and the `remote-folder-path`.
