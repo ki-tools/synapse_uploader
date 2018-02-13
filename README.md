@@ -1,6 +1,23 @@
 # Synapse File Uploader
 
-A utility to upload a directory to [Synapse](https://www.synapse.org/)
+A utility to upload a directory and all its contents to a [Synapse](https://www.synapse.org/) Project.
+
+## Dependencies
+
+- [Python](https://www.python.org/)
+- A [Synapse](https://www.synapse.org/) account with a username/password. Authentication through a 3rd party (.e.g., Google) will not work, you must have a Synapse user/pass for the API to authenticate.
+- synapseclient - Follow install instructions [here](http://docs.synapse.org/python/)
+
+## Install
+
+Copy the Python file to your local system or clone the GIT repository.
+
+```bash
+$ git clone git@github.com:pcstout/synapse_uploader.git
+$ cd synapse_uploader
+$ chmod u+x *.py
+```
+
 
 ## Usage
 
