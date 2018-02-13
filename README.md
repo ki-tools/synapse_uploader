@@ -5,7 +5,7 @@ A utility to upload a directory and all its contents to a [Synapse](https://www.
 ## Dependencies
 
 - [Python](https://www.python.org/)
-- A [Synapse](https://www.synapse.org/) account with a username/password. Authentication through a 3rd party (.e.g., Google) will not work, you must have a Synapse user/pass for the API to authenticate.
+- A [Synapse](https://www.synapse.org/) account with a username/password. Authentication through a 3rd party (.e.g., Google) will not work, you must have a Synapse user/pass for the [API to authenticate](http://docs.synapse.org/python/#connecting-to-synapse).
 - synapseclient - Follow install instructions [here](http://docs.synapse.org/python/)
 
 ## Install
@@ -18,7 +18,6 @@ $ cd synapse_uploader
 $ chmod u+x *.py
 ```
 
-
 ## Usage
 
 ```bash
@@ -29,12 +28,12 @@ $ chmod u+x *.py
 
 Upload all the folders and files in `~/my_study` to your Project ID `syn123456`:
 
-```bash
-./synapse_uploader.py syn123456 ~/my_study
-```
+- Linux: `./synapse_uploader.py syn123456 ~/my_study`
+- Windows: `synapse_uploader.py syn123456 C:\my_study`
 
 Upload all the folders and files in `~/my_study` to your Project ID `syn123456` in the `drafts/my_study` folder:
 
-```bash
-./synapse_uploader.py syn123456 ~/my_study drafts/my_study
-```
+- Linux: `./synapse_uploader.py syn123456 ~/my_study drafts/my_study`
+- Windows: `synapse_uploader.py syn123456 C:\my_study drafts\my_study`
+
+> Note: The correct path separator (`\` for Windows and `/` for Linux) must be used in both the `local-folder-path` and the `remote-folder-path`.
