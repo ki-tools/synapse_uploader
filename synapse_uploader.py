@@ -119,8 +119,7 @@ class SynapseUploader:
             synapse_folder.id = 'syn0'
         else:
             synapse_folder = self._synapse_client.store(synapse_folder, forceVersion=False)
-            
-    
+
         self.set_synapse_folder(full_synapse_path, synapse_folder)
 
 
