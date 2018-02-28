@@ -18,6 +18,13 @@ $ cd synapse_uploader
 $ chmod u+x *.py
 ```
 
+Add environment variables for Synapse credentials.
+Specify these variables on the command line when executing the script or add them to your environment.
+```bash
+SYNAPSE_USER=your-synapse-username
+SYNAPSE_PASSWORD=your-synapse-password
+```
+
 ## Usage
 
 ```text
