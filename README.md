@@ -6,7 +6,7 @@ A utility to upload a directory and all its contents to a [Synapse](https://www.
 
 - [Python](https://www.python.org/)
 - A [Synapse](https://www.synapse.org/) account with a username/password. Authentication through a 3rd party (.e.g., Google) will not work, you must have a Synapse user/pass for the [API to authenticate](http://docs.synapse.org/python/#connecting-to-synapse).
-- synapseclient - Follow install instructions [here](http://docs.synapse.org/python/)
+- synapseclient - Follow install instructions [here](http://docs.synapse.org/python/) or `(sudo) pip3 install (--upgrade) synapseclient[pandas,pysftp]`
 
 ## Install
 
@@ -28,19 +28,23 @@ SYNAPSE_PASSWORD=your-synapse-password
 ## Usage
 
 ```text
-usage: synapse_uploader.py [-h] [-r REMOTE_FOLDER_PATH] [-d]
+usage: synapse_uploader.py [-h] [-r REMOTE_FOLDER_PATH] [-u USERNAME]
+                           [-p PASSWORD] [-d]
                            project-id local-folder-path
 
 positional arguments:
   project-id            Synapse Project ID to upload to (e.g., syn123456789).
-  local-folder-path     Path of the local folder to upload.
+  local-folder-path     Path of the folder to upload.
 
 optional arguments:
   -h, --help            show this help message and exit
   -r REMOTE_FOLDER_PATH, --remote-folder-path REMOTE_FOLDER_PATH
                         Folder to upload to in Synapse.
+  -u USERNAME, --username USERNAME
+                        Synapse username.
+  -p PASSWORD, --password PASSWORD
+                        Synapse password.
   -d, --dry-run         Dry run only. Do not upload any folders or files.
-
 ```
 
 ## Examples

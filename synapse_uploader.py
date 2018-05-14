@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # Copyright 2017-present, Bill & Melinda Gates Foundation
 #
@@ -14,19 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys, os, argparse
+import sys, os, argparse, getpass
 import synapseclient
 from synapseclient import Project, Folder, File
 
 class SynapseUploader:
 
 
-    def __init__(self, synapse_project, local_path, remote_path=None, dry_run=False):
+    def __init__(self, synapse_project, local_path, remote_path=None, dry_run=False, username=None, password=None):
         self._dry_run = dry_run
         self._synapse_project = synapse_project
         self._local_path = local_path.rstrip(os.sep)
         self._remote_path = None
         self._synapse_folders = {}
+        self._username = username
+        self._password = password
         
         if remote_path != None and len(remote_path.strip()) > 0:
             self._remote_path = remote_path.strip().lstrip(os.sep).rstrip(os.sep)
@@ -83,8 +85,14 @@ class SynapseUploader:
 
     def login(self):
         print('Logging into Synapse...')
-        syn_user = os.environ['SYNAPSE_USER']
-        syn_pass = os.environ['SYNAPSE_PASSWORD']
+        syn_user = os.getenv('SYNAPSE_USER') or self._username
+        syn_pass = os.getenv('SYNAPSE_PASSWORD') or self._password
+
+        if syn_user == None:
+            syn_user = input('Synapse username: ')
+
+        if syn_pass == None:
+            syn_pass = getpass.getpass(prompt='Synapse password: ')
         
         self._synapse_client = synapseclient.Synapse()
         self._synapse_client.login(syn_user, syn_pass, silent=True)
@@ -143,7 +151,10 @@ def main(argv):
     parser.add_argument('project_id', metavar='project-id', help='Synapse Project ID to upload to (e.g., syn123456789).')
     parser.add_argument('local_folder_path', metavar='local-folder-path', help='Path of the folder to upload.')
     parser.add_argument('-r', '--remote-folder-path', help='Folder to upload to in Synapse.', default=None)
+    parser.add_argument('-u', '--username', help='Synapse username.', default=None)
+    parser.add_argument('-p', '--password', help='Synapse password.', default=None)
     parser.add_argument('-d', '--dry-run', help='Dry run only. Do not upload any folders or files.', default=False, action='store_true')
+
     args = parser.parse_args()
     
     SynapseUploader(
@@ -151,6 +162,8 @@ def main(argv):
         ,args.local_folder_path
         ,remote_path=args.remote_folder_path
         ,dry_run=args.dry_run
+        ,username=args.username
+        ,password=args.password
         ).start()
 
 
