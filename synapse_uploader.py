@@ -18,6 +18,8 @@ import sys
 import os
 import argparse
 import getpass
+import time
+import random
 import synapseclient
 from synapseclient import Project, Folder, File
 
@@ -137,8 +139,25 @@ class SynapseUploader:
         print('  -> {0}'.format(full_synapse_path))
 
         if not self._dry_run:
-            self._synapse_client.store(
-                File(local_file, parent=synapse_parent), forceVersion=False)
+            syn_file = None
+            max_attempts = 5
+            attempt_number = 1
+
+            while attempt_number <= max_attempts and not syn_file:
+                try:
+                    attempt_number += 1
+                    syn_file = self._synapse_client.store(
+                        File(local_file, parent=synapse_parent), forceVersion=False)
+                except Exception as ex:
+                    print('  -! Error uploading file: {0}'.format(str(ex)))
+                    if attempt_number <= max_attempts:
+                        sleep_time = random.randint(1, 5)
+                        print(
+                            '  -! Retrying in {0} seconds'.format(sleep_time))
+                        time.sleep(sleep_time)
+
+            if not syn_file:
+                print('  -! Failed to upload file')
 
 
 def main():

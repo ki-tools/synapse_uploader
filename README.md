@@ -15,6 +15,7 @@ Copy the Python file to your local system or clone the GIT repository.
 ```bash
 $ git clone git@github.com:pcstout/synapse_uploader.git
 $ cd synapse_uploader
+$ pip install -r requirements.txt
 $ chmod u+x *.py
 ```
 
