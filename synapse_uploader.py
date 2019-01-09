@@ -34,6 +34,7 @@ class SynapseUploader:
         self._synapse_folders = {}
         self._username = username
         self._password = password
+        self._hasErrors = False
 
         if remote_path != None and len(remote_path.strip()) > 0:
             self._remote_path = remote_path.strip().lstrip(os.sep).rstrip(os.sep)
@@ -55,7 +56,7 @@ class SynapseUploader:
         self.set_synapse_folder(self._synapse_project, project)
 
         # Create the remote_path if specified.
-        if self._remote_path != None:
+        if self._remote_path:
             full_path = ''
             for folder in filter(None, self._remote_path.split(os.sep)):
                 full_path = os.path.join(full_path, folder)
@@ -71,13 +72,15 @@ class SynapseUploader:
                 full_file_name = os.path.join(dirpath, filename)
                 self.upload_file_to_synapse(full_file_name)
 
+        completion_status = 'With Errors' if self._hasErrors else 'Successfully'
+
         if self._dry_run:
-            print('Dry Run Completed Successfully.')
+            print('Dry Run Completed {0}'.format(completion_status))
         else:
-            print('Upload Completed Successfully.')
+            print('Upload Completed {0}'.format(completion_status))
 
     def get_synapse_folder(self, synapse_path):
-        return self._synapse_folders[synapse_path]
+        return self._synapse_folders.get(synapse_path, None)
 
     def set_synapse_folder(self, synapse_path, parent):
         self._synapse_folders[synapse_path] = parent
@@ -100,8 +103,11 @@ class SynapseUploader:
         if virtual_path:
             return os.path.join(self._synapse_project, local_path)
         else:
-            return os.path.join(self._synapse_project, (self._remote_path if self._remote_path else ''), local_path.replace(self._local_path + os.sep, '')
-                                )
+            return os.path.join(
+                self._synapse_project,
+                (self._remote_path if self._remote_path else ''),
+                local_path.replace(self._local_path + os.sep, '')
+            )
 
     def create_directory_in_synapse(self, path, virtual_path=False):
         print('Processing Folder: {0}'.format(path))
@@ -109,20 +115,45 @@ class SynapseUploader:
         full_synapse_path = self.get_synapse_path(path, virtual_path)
         synapse_parent_path = os.path.dirname(full_synapse_path)
         synapse_parent = self.get_synapse_folder(synapse_parent_path)
+
+        if not synapse_parent:
+            self._hasErrors = True
+            print('  -! Cannot create folder, parent not found.')
+            return
+
         folder_name = os.path.basename(full_synapse_path)
 
         print('  -> {0}'.format(full_synapse_path))
 
-        synapse_folder = Folder(folder_name, parent=synapse_parent)
+        synapse_folder = Folder(name=folder_name, parent=synapse_parent)
 
         if self._dry_run:
-            # Give the folder a fake id so it doesn't blow when this folder is used as a parent.
+            # Give the folder a fake id so it doesn't blow up when this folder is used as a parent.
             synapse_folder.id = 'syn0'
         else:
-            synapse_folder = self._synapse_client.store(
-                synapse_folder, forceVersion=False)
+            max_attempts = 5
+            attempt_number = 0
 
-        self.set_synapse_folder(full_synapse_path, synapse_folder)
+            while attempt_number < max_attempts and not synapse_folder.get('id', None):
+                try:
+                    attempt_number += 1
+                    synapse_folder = self._synapse_client.store(
+                        synapse_folder, forceVersion=False)
+                except Exception as ex:
+                    print('  -! Error creating folder: {0}'.format(str(ex)))
+                    if attempt_number < max_attempts:
+                        sleep_time = random.randint(1, 5)
+                        print(
+                            '  -! Retrying in {0} seconds'.format(sleep_time))
+                        time.sleep(sleep_time)
+
+        if not synapse_folder.get('id', None):
+            self._hasErrors = True
+            print('  -! Failed to create folder')
+        else:
+            if attempt_number > 1:
+                print('  -> Folder created')
+            self.set_synapse_folder(full_synapse_path, synapse_folder)
 
     def upload_file_to_synapse(self, local_file):
         # Skip empty files since these will error when uploading via the synapseclient.
@@ -136,28 +167,38 @@ class SynapseUploader:
         synapse_parent_path = os.path.dirname(full_synapse_path)
         synapse_parent = self.get_synapse_folder(synapse_parent_path)
 
+        if not synapse_parent:
+            self._hasErrors = True
+            print('  -! Cannot upload file, parent not found.')
+            return
+
         print('  -> {0}'.format(full_synapse_path))
 
-        if not self._dry_run:
-            syn_file = None
-            max_attempts = 5
-            attempt_number = 1
+        synapse_file = File(path=local_file, parent=synapse_parent)
 
-            while attempt_number <= max_attempts and not syn_file:
+        if not self._dry_run:
+            max_attempts = 5
+            attempt_number = 0
+
+            while attempt_number < max_attempts and not synapse_file.get('id', None):
                 try:
                     attempt_number += 1
-                    syn_file = self._synapse_client.store(
-                        File(local_file, parent=synapse_parent), forceVersion=False)
+                    synapse_file = self._synapse_client.store(
+                        synapse_file, forceVersion=False)
                 except Exception as ex:
                     print('  -! Error uploading file: {0}'.format(str(ex)))
-                    if attempt_number <= max_attempts:
+                    if attempt_number < max_attempts:
                         sleep_time = random.randint(1, 5)
                         print(
                             '  -! Retrying in {0} seconds'.format(sleep_time))
                         time.sleep(sleep_time)
 
-            if not syn_file:
+            if not synapse_file.get('id', None):
+                self._hasErrors = True
                 print('  -! Failed to upload file')
+            else:
+                if attempt_number > 1:
+                    print('  -> File uploaded')
 
 
 def main():
