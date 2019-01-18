@@ -87,8 +87,8 @@ class SynapseUploader:
 
     def login(self):
         print('Logging into Synapse...')
-        syn_user = os.getenv('SYNAPSE_USER') or self._username
-        syn_pass = os.getenv('SYNAPSE_PASSWORD') or self._password
+        syn_user = self._username or os.getenv('SYNAPSE_USER')
+        syn_pass = self._password or os.getenv('SYNAPSE_PASSWORD')
 
         if syn_user == None:
             syn_user = input('Synapse username: ')
