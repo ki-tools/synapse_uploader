@@ -29,8 +29,8 @@ SYNAPSE_PASSWORD=your-synapse-password
 ## Usage
 
 ```text
-usage: synapse_uploader.py [-h] [-r REMOTE_FOLDER_PATH] [-u USERNAME]
-                           [-p PASSWORD] [-d]
+usage: synapse_uploader.py [-h] [-r REMOTE_FOLDER_PATH] [-d DEPTH]
+                           [-u USERNAME] [-p PASSWORD] [-l LOG_LEVEL]
                            project-id local-folder-path
 
 positional arguments:
@@ -41,11 +41,15 @@ optional arguments:
   -h, --help            show this help message and exit
   -r REMOTE_FOLDER_PATH, --remote-folder-path REMOTE_FOLDER_PATH
                         Folder to upload to in Synapse.
+  -d DEPTH, --depth DEPTH
+                        The maximum number of child folders or files under a
+                        Synapse Project/Folder.
   -u USERNAME, --username USERNAME
                         Synapse username.
   -p PASSWORD, --password PASSWORD
                         Synapse password.
-  -d, --dry-run         Dry run only. Do not upload any folders or files.
+  -l LOG_LEVEL, --log-level LOG_LEVEL
+                        Set the logging level.
 ```
 
 ## Examples
