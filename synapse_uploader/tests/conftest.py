@@ -37,7 +37,7 @@ if os.path.isfile(test_env_file):
         for key, value in config.items():
             os.environ[key] = value
 else:
-    raise Exception('WARNING: Test environment file not found at: {0}'.format(test_env_file))
+    print('WARNING: Test environment file not found at: {0}'.format(test_env_file))
 
 
 @pytest.fixture(scope='session')
