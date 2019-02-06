@@ -91,7 +91,7 @@ def test_synapse_client_value():
     assert syn_uploader._synapse_client == client
 
 
-def test_login():
+def test_login(syn_client):
     # Uses ENV
     syn_uploader = SynapseUploader('None', 'None')
     syn_uploader.login() is True
@@ -102,6 +102,11 @@ def test_login():
                                    username=os.environ['SYNAPSE_USERNAME'], password=os.environ['SYNAPSE_PASSWORD'])
     assert syn_uploader.login() is True
     assert syn_uploader._synapse_client is not None
+
+    # Uses the passed in client
+    syn_uploader = SynapseUploader('None', 'None', synapse_client=syn_client)
+    syn_uploader.login() is True
+    assert syn_uploader._synapse_client == syn_client
 
     # Fails to login
     syn_uploader = SynapseUploader('None', 'None', username=uuid.uuid4(), password=uuid.uuid4())

@@ -72,7 +72,7 @@ class SynapseUploader:
             logging.info('Uploading To: {0}'.format(self._remote_path))
 
         if not self.login():
-            logging.info('Could not log into Synapse. Aborting.')
+            logging.error('Could not log into Synapse. Aborting.')
             return
 
         project = self._synapse_client.get(Project(id=self._synapse_project))
@@ -94,22 +94,25 @@ class SynapseUploader:
         logging.info('Upload Completed {0}'.format(completion_status))
 
     def login(self):
-        logging.info('Logging into Synapse...')
-        self._username = self._username or os.getenv('SYNAPSE_USERNAME')
-        self._password = self._password or os.getenv('SYNAPSE_PASSWORD')
+        if self._synapse_client and self._synapse_client.credentials:
+            logging.info('Already logged into Synapse.')
+        else:
+            logging.info('Logging into Synapse...')
+            self._username = self._username or os.getenv('SYNAPSE_USERNAME')
+            self._password = self._password or os.getenv('SYNAPSE_PASSWORD')
 
-        if self._username is None:
-            self._username = input('Synapse username: ')
+            if self._username is None:
+                self._username = input('Synapse username: ')
 
-        if self._password is None:
-            self._password = getpass.getpass(prompt='Synapse password: ')
+            if self._password is None:
+                self._password = getpass.getpass(prompt='Synapse password: ')
 
-        try:
-            self._synapse_client = synapseclient.Synapse()
-            self._synapse_client.login(self._username, self._password, silent=True)
-        except Exception as ex:
-            self._synapse_client = None
-            logging.error('Synapse login failed: {0}'.format(str(ex)))
+            try:
+                self._synapse_client = synapseclient.Synapse()
+                self._synapse_client.login(self._username, self._password, silent=True)
+            except Exception as ex:
+                self._synapse_client = None
+                logging.error('Synapse login failed: {0}'.format(str(ex)))
 
         return self._synapse_client is not None
 
