@@ -14,6 +14,7 @@
 
 import os
 import uuid
+import getpass
 import pytest
 from synapse_uploader.synapse_uploader import SynapseUploader
 
@@ -25,10 +26,10 @@ def mkdir(*path_segments):
     return path
 
 
-def mkfile(*path_segments):
+def mkfile(*path_segments, content=str(uuid.uuid4())):
     path = os.path.join(*path_segments)
     with open(path, 'w') as file:
-        file.write(str(uuid.uuid4()))
+        file.write(content)
     return path
 
 
@@ -55,6 +56,24 @@ def test_local_path_value():
     local_path = '/one/two/three'
     syn_uploader = SynapseUploader('None', local_path)
     assert syn_uploader._local_path == local_path
+
+
+def test_remote_path_value():
+    path_segments = ['one', 'two', 'three']
+    remote_path = os.path.join(*path_segments)
+
+    syn_uploader = SynapseUploader('None', 'None', remote_path=remote_path)
+    assert syn_uploader._remote_path == remote_path
+
+    # Strips spaces and separators
+    syn_uploader = SynapseUploader('None', 'None', remote_path='{0} {0}'.format(os.sep))
+    assert syn_uploader._remote_path is None
+
+    syn_uploader = SynapseUploader('None', 'None', remote_path='{0} one {0}'.format(os.sep))
+    assert syn_uploader._remote_path == 'one'
+
+    syn_uploader = SynapseUploader('None', 'None', remote_path='{0} one {0} two {0} three {0}'.format(os.sep))
+    assert syn_uploader._remote_path == 'one/two/three'
 
 
 def test_max_depth_value():
@@ -91,7 +110,7 @@ def test_synapse_client_value():
     assert syn_uploader._synapse_client == client
 
 
-def test_login(syn_client):
+def test_login(syn_client, monkeypatch, mocker):
     # Uses ENV
     syn_uploader = SynapseUploader('None', 'None')
     syn_uploader.login() is True
@@ -113,18 +132,37 @@ def test_login(syn_client):
     assert syn_uploader.login() is False
     assert syn_uploader._synapse_client is None
 
+    # Prompts for the username and password
+    with monkeypatch.context() as mp:
+        mp.delenv('SYNAPSE_USERNAME')
+        mp.delenv('SYNAPSE_PASSWORD')
 
-def test_remote_path(syn_client, new_syn_project, temp_dir):
+        mock_username = uuid.uuid4()
+        mock_password = uuid.uuid4()
+
+        mocker.patch('builtins.input', return_value=mock_username)
+        mocker.patch('getpass.getpass', return_value=mock_password)
+        syn_uploader = SynapseUploader('None', 'None')
+        syn_uploader.login()
+        assert syn_uploader._username == mock_username
+        assert syn_uploader._password == mock_password
+        input.assert_called_once()
+        getpass.getpass.assert_called_once()
+
+
+
+def test_upload_bad_credentials(mocker):
+    syn_uploader = SynapseUploader('None', 'None', username=uuid.uuid4(), password=uuid.uuid4())
+    syn_uploader.upload()
+    assert syn_uploader._synapse_client is None
+
+
+def test_upload_remote_path(syn_client, new_syn_project, temp_dir):
     path_segments = ['one', 'two', 'three']
     remote_path = os.path.join(*path_segments)
 
-    syn_uploader = SynapseUploader(new_syn_project.id, temp_dir, remote_path=remote_path, synapse_client=syn_client)
-    syn_uploader.upload()
+    SynapseUploader(new_syn_project.id, temp_dir, remote_path=remote_path, synapse_client=syn_client).upload()
 
-    # Sets the correct path
-    assert syn_uploader._remote_path == remote_path
-
-    # Create the folders in Synapse.
     parent = new_syn_project
     for segment in path_segments:
         folder = next(syn_client.getChildren(parent, includeTypes=['folder']))
@@ -132,7 +170,7 @@ def test_remote_path(syn_client, new_syn_project, temp_dir):
         parent = folder
 
 
-def test_local_path(syn_client, new_syn_project, temp_dir):
+def test_upload(syn_client, new_syn_project, temp_dir):
     """
         Tests this scenario:
 
@@ -155,6 +193,7 @@ def test_local_path(syn_client, new_syn_project, temp_dir):
     mkfile(folder2, 'file5')
     folder3 = mkdir(folder2, 'folder3')
     mkfile(folder3, 'file6')
+    mkfile(folder3, 'file7', content='')  # Empty files should NOT get uploaded.
 
     SynapseUploader(new_syn_project.id, temp_dir, synapse_client=syn_client).upload()
 
@@ -192,7 +231,7 @@ def test_local_path(syn_client, new_syn_project, temp_dir):
     assert syn_file
 
 
-def test_local_path_max_depth(syn_client, new_syn_project, temp_dir):
+def test_upload_max_depth(syn_client, new_syn_project, temp_dir):
     """
         Tests this scenario:
 

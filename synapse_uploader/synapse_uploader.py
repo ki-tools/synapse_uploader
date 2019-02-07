@@ -59,8 +59,8 @@ class SynapseUploader:
         if max_depth < self.MIN_SYNAPSE_DEPTH:
             raise Exception('Maximum depth must be greater than or equal to {0}.'.format(self.MIN_SYNAPSE_DEPTH))
 
-        if remote_path and len(remote_path.strip()) > 0:
-            self._remote_path = remote_path.strip().lstrip(os.sep).rstrip(os.sep)
+        if remote_path:
+            self._remote_path = remote_path.replace(' ', '').lstrip(os.sep).rstrip(os.sep)
             if len(self._remote_path) == 0:
                 self._remote_path = None
 
@@ -101,10 +101,10 @@ class SynapseUploader:
             self._username = self._username or os.getenv('SYNAPSE_USERNAME')
             self._password = self._password or os.getenv('SYNAPSE_PASSWORD')
 
-            if self._username is None:
+            if not self._username:
                 self._username = input('Synapse username: ')
 
-            if self._password is None:
+            if not self._password:
                 self._password = getpass.getpass(prompt='Synapse password: ')
 
             try:
@@ -132,8 +132,7 @@ class SynapseUploader:
         else:
             next_parent = parent
             while next_parent:
-                if next_parent:
-                    segments.insert(0, next_parent.name)
+                segments.insert(0, next_parent.name)
                 next_parent = self.get_synapse_parent(next_parent.parentId)
 
         segments.append(folder_or_file_name)
@@ -148,7 +147,7 @@ class SynapseUploader:
             for entry in iter:
                 if entry.is_dir(follow_symlinks=False):
                     dirs.append(entry)
-                elif entry.is_file(follow_symlinks=False):
+                else:
                     files.append(entry)
 
         dirs.sort(key=lambda f: f.name)
