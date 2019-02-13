@@ -22,7 +22,7 @@ setuptools.setup(
     ),
     entry_points={
         'console_scripts': [
-            "synapse-uploader = synapse_uploader.cli:main"
+            "synapse-uploader = src.cli:main"
         ]
     },
     install_requires=[

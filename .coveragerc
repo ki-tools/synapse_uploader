@@ -1,6 +1,6 @@
 [run]
 branch = True
 source =
-     synapse_uploader
+     src
 omit =
     */tests/*

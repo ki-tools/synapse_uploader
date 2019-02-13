@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pytest
-import synapse_uploader.cli as cli
+import src.cli as cli
 
 
 def test_cli():

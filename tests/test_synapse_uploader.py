@@ -16,7 +16,7 @@ import os
 import uuid
 import getpass
 import pytest
-from synapse_uploader.synapse_uploader import SynapseUploader
+from src.synapse_uploader import SynapseUploader
 
 
 def mkdir(*path_segments):
@@ -160,16 +160,61 @@ def test_upload_bad_credentials(mocker):
 
 
 def test_upload_remote_path(syn_client, new_syn_project, new_temp_dir):
+    """
+            Tests this scenario:
+
+            Remote Path: one/two/three
+
+            file1
+            folder1/
+                file2
+                folder2/
+                    file3
+            """
     path_segments = ['one', 'two', 'three']
     remote_path = os.path.join(*path_segments)
+
+    mkfile(new_temp_dir, 'file1')
+    folder1 = mkdir(new_temp_dir, 'folder1')
+    mkfile(folder1, 'file2')
+    folder2 = mkdir(folder1, 'folder2')
+    mkfile(folder2, 'file3')
 
     SynapseUploader(new_syn_project.id, new_temp_dir, remote_path=remote_path, synapse_client=syn_client).upload()
 
     parent = new_syn_project
     for segment in path_segments:
-        folder = next(syn_client.getChildren(parent, includeTypes=['folder']))
-        assert folder['name'] == segment
+        syn_files, syn_file_names = get_syn_files(syn_client, parent)
+        syn_folders, syn_folder_names = get_syn_folders(syn_client, parent)
+        assert len(syn_files) == 0
+        assert len(syn_folders) == 1
+        folder = find_by_name(syn_folders, segment)
+        assert folder
         parent = folder
+
+    syn_files, syn_file_names = get_syn_files(syn_client, parent)
+    syn_folders, syn_folder_names = get_syn_folders(syn_client, parent)
+    assert len(syn_files) == 1
+    assert len(syn_folders) == 1
+    syn_folder = find_by_name(syn_folders, 'folder1')
+    assert syn_folder
+    assert syn_file_names == ['file1']
+    assert syn_folder_names == ['folder1']
+
+    syn_files, syn_file_names = get_syn_files(syn_client, syn_folder)
+    syn_folders, syn_folder_names = get_syn_folders(syn_client, syn_folder)
+    assert len(syn_files) == 1
+    assert len(syn_folders) == 1
+    syn_folder = find_by_name(syn_folders, 'folder2')
+    assert syn_folder
+    assert syn_file_names == ['file2']
+    assert syn_folder_names == ['folder2']
+
+    syn_files, syn_file_names = get_syn_files(syn_client, syn_folder)
+    syn_folders, _ = get_syn_folders(syn_client, syn_folder)
+    assert len(syn_files) == 1
+    assert len(syn_folders) == 0
+    assert syn_file_names == ['file3']
 
 
 def test_upload(syn_client, new_syn_project, new_temp_dir):
