@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .synapse_uploader import SynapseUploader
+import pytest
+import synapse_uploader.cli as cli
 
-name = 'synapse-uploader'
+
+def test_cli():
+    # TODO: add tests.
+    pass

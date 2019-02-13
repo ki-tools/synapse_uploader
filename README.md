@@ -1,26 +1,22 @@
-# Synapse File Uploader
+# Synapse Uploader
 
 A utility to upload a directory and all its contents to a [Synapse](https://www.synapse.org/) Project.
 
 ## Dependencies
 
-- [Python](https://www.python.org/)
+- [Python3](https://www.python.org/)
 - A [Synapse](https://www.synapse.org/) account with a username/password. Authentication through a 3rd party (.e.g., Google) will not work, you must have a Synapse user/pass for the [API to authenticate](http://docs.synapse.org/python/#connecting-to-synapse).
-- synapseclient - Follow install instructions [here](http://docs.synapse.org/python/) or `(sudo) pip3 install (--upgrade) synapseclient[pandas,pysftp]`
 
 ## Install
 
-Copy the Python file to your local system or clone the GIT repository.
-
 ```bash
-$ git clone git@github.com:pcstout/synapse_uploader.git
-$ cd synapse_uploader
-$ pip install -r requirements.txt
-$ chmod u+x *.py
+pip install synapse-uploader
 ```
 
-Add environment variables for Synapse credentials.
-Specify these variables on the command line when executing the script or add them to your environment.
+## Configuration
+
+Your Synapse credentials can be provided on the command line (`--username`, `--password`) or via environment variables.
+
 ```bash
 SYNAPSE_USERNAME=your-synapse-username
 SYNAPSE_PASSWORD=your-synapse-password
@@ -56,12 +52,29 @@ optional arguments:
 
 Upload all the folders and files in `~/my_study` to your Project ID `syn123456`:
 
-- Linux: `./synapse_uploader.py syn123456 ~/my_study`
-- Windows: `synapse_uploader.py syn123456 %USERPROFILE%\my_study`
+- Linux: `synapse_uploader syn123456 ~/my_study`
+- Windows: `synapse_uploader syn123456 %USERPROFILE%\my_study`
 
 Upload all the folders and files in `~/my_study` to your Project ID `syn123456` in the `drafts/my_study` folder:
 
-- Linux: `./synapse_uploader.py syn123456 ~/my_study -r drafts/my_study`
-- Windows: `synapse_uploader.py syn123456 %USERPROFILE%\my_study -r drafts\my_study`
+- Linux: `synapse_uploader syn123456 ~/my_study -r drafts/my_study`
+- Windows: `synapse_uploader syn123456 %USERPROFILE%\my_study -r drafts\my_study`
 
 > Note: The correct path separator (`\` for Windows and `/` for Linux) must be used in both the `local-folder-path` and the `remote-folder-path`.
+
+## Development Setup
+
+```bash
+make init_dev
+make build
+make install_local
+```
+See [Makefile](Makefile) for all commands.
+
+### Testing
+
+- Create and activate a virtual environment:
+  - `python3 -m venv .venv`
+  - `source .venv/bin/activate`
+- Copy [private.test.env.json](tests/templates/private.test.env.json) to the [tests](tests) directory and set each of the variables.
+- Run the tests: `make test`

@@ -2,7 +2,7 @@
 .vscode
 .venv
 log.txt
-synapse_uploader/tests/private.*
+tests/private.*
 .coverage
 htmlcov
 *.pyc

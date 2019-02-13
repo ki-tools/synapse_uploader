@@ -17,7 +17,7 @@ import tempfile
 import os
 import json
 import shutil
-from synapse_uploader.tests.synapse_test_helper import SynapseTestHelper
+from tests.synapse_test_helper import SynapseTestHelper
 
 # Load Environment variables.
 module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -61,11 +61,17 @@ def syn_project(syn_test_helper):
 
 
 @pytest.fixture(scope='session')
-def temp_dir():
-    path = tempfile.mkdtemp()
-    yield path
-    if os.path.isdir(path):
-        shutil.rmtree(path)
+def temp_file(syn_test_helper):
+    """
+    Generates a temp file containing the SynapseTestHelper.uniq_name per function.
+    """
+    fd, tmp_filename = tempfile.mkstemp()
+    with os.fdopen(fd, 'w') as tmp:
+        tmp.write(syn_test_helper.uniq_name())
+    yield tmp_filename
+
+    if os.path.isfile(tmp_filename):
+        os.remove(tmp_filename)
 
 
 @pytest.fixture()
@@ -83,15 +89,9 @@ def new_syn_project(new_syn_test_helper):
     return new_syn_test_helper.create_project()
 
 
-@pytest.fixture(scope='session')
-def temp_file(syn_test_helper):
-    """
-    Generates a temp file containing the SynapseTestHelper.uniq_name per function.
-    """
-    fd, tmp_filename = tempfile.mkstemp()
-    with os.fdopen(fd, 'w') as tmp:
-        tmp.write(syn_test_helper.uniq_name())
-    yield tmp_filename
-
-    if os.path.isfile(tmp_filename):
-        os.remove(tmp_filename)
+@pytest.fixture()
+def new_temp_dir():
+    path = tempfile.mkdtemp()
+    yield path
+    if os.path.isdir(path):
+        shutil.rmtree(path)

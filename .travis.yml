@@ -4,7 +4,6 @@ python:
 before_install:
   - export LOG_LEVEL=DEBUG
 install:
-  - pip install -r requirements-dev.txt
   - pip install -r requirements.txt
 script:
   - pytest --cov

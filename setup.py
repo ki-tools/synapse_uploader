@@ -4,10 +4,11 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="synapse_uploader",
-    version="0.0.beta1",
+    name="synapse-uploader",
+    version="0.0.beta2",
     author="Patrick Stout",
     author_email="pstout@prevagroup.com",
+    license="Apache2",
     description="Synapse upload utility.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -21,7 +22,10 @@ setuptools.setup(
     ),
     entry_points={
         'console_scripts': [
-            "synapse_uploader = synapse_uploader.synapse_uploader:main"
+            "synapse-uploader = synapse_uploader.cli:main"
         ]
-    }
+    },
+    install_requires=[
+        'synapseclient==1.9.0',
+    ]
 )

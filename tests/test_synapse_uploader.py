@@ -34,8 +34,7 @@ def mkfile(*path_segments, content=str(uuid.uuid4())):
 
 
 def get_syn_folders(syn_client, syn_parent):
-    syn_folders = list(syn_client.getChildren(
-        syn_parent, includeTypes=['folder']))
+    syn_folders = list(syn_client.getChildren(syn_parent, includeTypes=['folder']))
     syn_folder_names = [s['name'] for s in syn_folders]
     return syn_folders, syn_folder_names
 
@@ -46,10 +45,14 @@ def get_syn_files(syn_client, syn_parent):
     return syn_files, syn_file_names
 
 
+def find_by_name(list, name):
+    return next((x for x in list if x['name'] == name), None)
+
+
 def test_synapse_project_value():
     syn_id = 'syn123'
     syn_uploader = SynapseUploader(syn_id, 'None')
-    assert syn_uploader._synapse_project == syn_id
+    assert syn_uploader._synapse_project_id == syn_id
 
 
 def test_local_path_value():
@@ -150,18 +153,17 @@ def test_login(syn_client, monkeypatch, mocker):
         getpass.getpass.assert_called_once()
 
 
-
 def test_upload_bad_credentials(mocker):
     syn_uploader = SynapseUploader('None', 'None', username=uuid.uuid4(), password=uuid.uuid4())
     syn_uploader.upload()
     assert syn_uploader._synapse_client is None
 
 
-def test_upload_remote_path(syn_client, new_syn_project, temp_dir):
+def test_upload_remote_path(syn_client, new_syn_project, new_temp_dir):
     path_segments = ['one', 'two', 'three']
     remote_path = os.path.join(*path_segments)
 
-    SynapseUploader(new_syn_project.id, temp_dir, remote_path=remote_path, synapse_client=syn_client).upload()
+    SynapseUploader(new_syn_project.id, new_temp_dir, remote_path=remote_path, synapse_client=syn_client).upload()
 
     parent = new_syn_project
     for segment in path_segments:
@@ -170,7 +172,7 @@ def test_upload_remote_path(syn_client, new_syn_project, temp_dir):
         parent = folder
 
 
-def test_upload(syn_client, new_syn_project, temp_dir):
+def test_upload(syn_client, new_syn_project, new_temp_dir):
     """
         Tests this scenario:
 
@@ -185,9 +187,9 @@ def test_upload(syn_client, new_syn_project, temp_dir):
                     file6
         """
     for i in range(1, 4):
-        mkfile(temp_dir, 'file{0}'.format(i))
+        mkfile(new_temp_dir, 'file{0}'.format(i))
 
-    folder1 = mkdir(temp_dir, 'folder1')
+    folder1 = mkdir(new_temp_dir, 'folder1')
     mkfile(folder1, 'file4')
     folder2 = mkdir(folder1, 'folder2')
     mkfile(folder2, 'file5')
@@ -195,22 +197,22 @@ def test_upload(syn_client, new_syn_project, temp_dir):
     mkfile(folder3, 'file6')
     mkfile(folder3, 'file7', content='')  # Empty files should NOT get uploaded.
 
-    SynapseUploader(new_syn_project.id, temp_dir, synapse_client=syn_client).upload()
+    SynapseUploader(new_syn_project.id, new_temp_dir, synapse_client=syn_client).upload()
 
-    syn_files, _ = get_syn_files(syn_client, new_syn_project)
+    syn_files, syn_file_names = get_syn_files(syn_client, new_syn_project)
     syn_folders, _ = get_syn_folders(syn_client, new_syn_project)
     assert len(syn_files) == 3
     assert len(syn_folders) == 1
-    syn_folder = next((x for x in syn_folders if x['name'] == 'folder1'), None)
+    syn_folder = find_by_name(syn_folders, 'folder1')
     assert syn_folder
-    assert [x['name'] for x in syn_files] == ['file1', 'file2', 'file3']
+    assert syn_file_names == ['file1', 'file2', 'file3']
 
     syn_files, _ = get_syn_files(syn_client, syn_folders[-1])
     syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
     assert len(syn_files) == 1
     assert len(syn_folders) == 1
-    syn_file = next((x for x in syn_files if x['name'] == 'file4'), None)
-    syn_folder = next((x for x in syn_folders if x['name'] == 'folder2'), None)
+    syn_file = find_by_name(syn_files, 'file4')
+    syn_folder = find_by_name(syn_folders, 'folder2')
     assert syn_file
     assert syn_folder
 
@@ -218,8 +220,8 @@ def test_upload(syn_client, new_syn_project, temp_dir):
     syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
     assert len(syn_files) == 1
     assert len(syn_folders) == 1
-    syn_file = next((x for x in syn_files if x['name'] == 'file5'), None)
-    syn_folder = next((x for x in syn_folders if x['name'] == 'folder3'), None)
+    syn_file = find_by_name(syn_files, 'file5')
+    syn_folder = find_by_name(syn_folders, 'folder3')
     assert syn_file
     assert syn_folder
 
@@ -227,56 +229,105 @@ def test_upload(syn_client, new_syn_project, temp_dir):
     syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
     assert len(syn_files) == 1
     assert len(syn_folders) == 0
-    syn_file = next((x for x in syn_files if x['name'] == 'file6'), None)
+    syn_file = find_by_name(syn_files, 'file6')
     assert syn_file
 
 
-def test_upload_max_depth(syn_client, new_syn_project, temp_dir):
+def test_upload_max_depth(syn_client, new_syn_project, new_temp_dir):
     """
         Tests this scenario:
 
-        folder1
+        file1
+        file2
+        file3
+        file4
+        file5
+        folder1/
+            file1-1
+            file1-2
         folder2
+        folder3
+        folder4
+        folder5
+
+        TO:
+
+        file1
+        file2
         more/
-            folder3
-            folder4
+            file3
+            file4
             more/
-                folder5
-                file1
+                file5
+                folder1/
+                    file1-1
+                    file1-2
                 more/
-                    file2
-                    file3
+                    folder2
+                    folder3
                     more/
-                        file4
-                        file5
+                        folder4
+                        folder5
         """
     for i in range(1, 6):
-        mkfile(temp_dir, 'file{0}'.format(i))
-        mkdir(temp_dir, 'folder{0}'.format(i))
+        mkfile(new_temp_dir, 'file{0}'.format(i))
+        folder_path = mkdir(new_temp_dir, 'folder{0}'.format(i))
+        if i == 1:
+            mkfile(folder_path, 'file1-1'.format(i))
+            mkfile(folder_path, 'file1-2'.format(i))
 
-    SynapseUploader(new_syn_project.id, temp_dir, max_depth=3, synapse_client=syn_client).upload()
+    SynapseUploader(new_syn_project.id, new_temp_dir, max_depth=3, synapse_client=syn_client).upload()
 
-    syn_files, _ = get_syn_files(syn_client, new_syn_project)
-    assert len(syn_files) == 0
-    syn_folders, _ = get_syn_folders(syn_client, new_syn_project)
-    assert len(syn_folders) == 3
-
-    syn_files, _ = get_syn_files(syn_client, syn_folders[-1])
-    assert len(syn_files) == 0
-    syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
-    assert len(syn_folders) == 3
-
-    syn_files, _ = get_syn_files(syn_client, syn_folders[-1])
-    assert len(syn_files) == 1
-    syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
-    assert len(syn_folders) == 2
-
-    syn_files, _ = get_syn_files(syn_client, syn_folders[-1])
+    syn_files, syn_file_names = get_syn_files(syn_client, new_syn_project)
     assert len(syn_files) == 2
-    syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
+    assert syn_file_names == ['file1', 'file2']
+    syn_folders, syn_folder_names = get_syn_folders(syn_client, new_syn_project)
     assert len(syn_folders) == 1
+    assert syn_folder_names == ['more']
 
-    syn_files, _ = get_syn_files(syn_client, syn_folders[-1])
+    more_folder = find_by_name(syn_folders, 'more')
+
+    syn_files, syn_file_names = get_syn_files(syn_client, more_folder)
     assert len(syn_files) == 2
-    syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
-    assert len(syn_folders) == 0
+    assert syn_file_names == ['file3', 'file4']
+    syn_folders, syn_folder_names = get_syn_folders(syn_client, more_folder)
+    assert len(syn_folders) == 1
+    assert syn_folder_names == ['more']
+
+    more_folder = find_by_name(syn_folders, 'more')
+
+    syn_files, syn_file_names = get_syn_files(syn_client, more_folder)
+    assert len(syn_files) == 1
+    assert syn_file_names == ['file5']
+    syn_folders, syn_folder_names = get_syn_folders(syn_client, more_folder)
+    assert len(syn_folders) == 2
+    assert syn_folder_names == ['folder1', 'more']
+
+    more_folder = find_by_name(syn_folders, 'more')
+
+    syn_folder1 = find_by_name(syn_folders, 'folder1')
+
+    child_syn_files, child_syn_file_names = get_syn_files(syn_client, syn_folder1)
+    assert len(child_syn_files) == 2
+    assert child_syn_file_names == ['file1-1', 'file1-2']
+    child_syn_folders, _ = get_syn_folders(syn_client, syn_folder1)
+    assert len(child_syn_folders) == 0
+
+    syn_files, _ = get_syn_files(syn_client, more_folder)
+    assert len(syn_files) == 0
+    syn_folders, syn_folder_names = get_syn_folders(syn_client, more_folder)
+    assert len(syn_folders) == 3
+    assert syn_folder_names == ['folder2', 'folder3', 'more']
+
+    more_folder = find_by_name(syn_folders, 'more')
+
+    syn_files, _ = get_syn_files(syn_client, more_folder)
+    assert len(syn_files) == 0
+    syn_folders, syn_folder_names = get_syn_folders(syn_client, more_folder)
+    assert len(syn_folders) == 2
+    assert syn_folder_names == ['folder4', 'folder5']
+
+
+def test_upload_failures():
+    # TODO: add tests.
+    pass

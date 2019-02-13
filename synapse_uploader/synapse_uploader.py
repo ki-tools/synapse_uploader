@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # Copyright 2017-present, Bill & Melinda Gates Foundation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +13,6 @@
 # limitations under the License.
 
 import os
-import argparse
 import getpass
 import time
 import random
@@ -34,22 +31,25 @@ class SynapseUploader:
     MIN_SYNAPSE_DEPTH = 2
 
     def __init__(self,
-                 synapse_project,
+                 synapse_project_id,
                  local_path,
                  remote_path=None,
                  max_depth=MAX_SYNAPSE_DEPTH,
+                 max_threads=None,
                  username=None,
                  password=None,
                  synapse_client=None):
 
-        self._synapse_client = synapse_client
-        self._username = username
-        self._password = password
-        self._thread_lock = threading.Lock()
-        self._synapse_project = synapse_project
+        self._synapse_project_id = synapse_project_id
         self._local_path = local_path.rstrip(os.sep)
         self._remote_path = remote_path
         self._max_depth = max_depth
+        self._max_threads = max_threads
+        self._username = username
+        self._password = password
+        self._synapse_client = synapse_client
+
+        self._thread_lock = threading.Lock()
         self._synapse_parents = {}
         self._hasErrors = False
 
@@ -65,7 +65,7 @@ class SynapseUploader:
                 self._remote_path = None
 
     def upload(self):
-        logging.info('Uploading to Project: {0}'.format(self._synapse_project))
+        logging.info('Uploading to Project: {0}'.format(self._synapse_project_id))
         logging.info('Uploading Directory: {0}'.format(self._local_path))
 
         if self._remote_path:
@@ -75,7 +75,7 @@ class SynapseUploader:
             logging.error('Could not log into Synapse. Aborting.')
             return
 
-        project = self._synapse_client.get(Project(id=self._synapse_project))
+        project = self._synapse_client.get(Project(id=self._synapse_project_id))
         self.set_synapse_parent(project)
 
         parent = project
@@ -87,7 +87,8 @@ class SynapseUploader:
                 full_path = os.path.join(full_path, folder)
                 parent = self.create_directory_in_synapse(full_path, parent)
 
-        self.upload_folder(self._local_path, parent)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_threads) as executor:
+            self.upload_folder(executor, self._local_path, parent)
 
         completion_status = 'With Errors' if self._hasErrors else 'Successfully'
 
@@ -155,32 +156,31 @@ class SynapseUploader:
 
         return dirs, files
 
-    def upload_folder(self, local_path, synapse_parent):
+    def upload_folder(self, executor, local_path, synapse_parent):
         parent = synapse_parent
 
         dirs, files = self.get_dirs_and_files(local_path)
 
         child_count = 0
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            # Upload the directories.
-            for dir_entry in dirs:
-                if (child_count + 1) >= self._max_depth:
-                    parent = self.create_directory_in_synapse('more', parent)
-                    child_count = 0
+        # Upload the files
+        for file_entry in files:
+            if (child_count + 1) >= self._max_depth:
+                parent = self.create_directory_in_synapse('more', parent)
+                child_count = 0
 
-                syn_dir = self.create_directory_in_synapse(dir_entry.path, parent)
-                executor.submit(self.upload_folder, dir_entry.path, syn_dir)
-                child_count += 1
+            executor.submit(self.upload_file_to_synapse, file_entry.path, parent)
+            child_count += 1
 
-            # Upload the files
-            for file_entry in files:
-                if (child_count + 1) >= self._max_depth:
-                    parent = self.create_directory_in_synapse('more', parent)
-                    child_count = 0
+        # Upload the directories.
+        for dir_entry in dirs:
+            if (child_count + 1) >= self._max_depth:
+                parent = self.create_directory_in_synapse('more', parent)
+                child_count = 0
 
-                executor.submit(self.upload_file_to_synapse, file_entry.path, parent)
-                child_count += 1
+            syn_dir = self.create_directory_in_synapse(dir_entry.path, parent)
+            self.upload_folder(executor, dir_entry.path, syn_dir)
+            child_count += 1
 
     def create_directory_in_synapse(self, path, synapse_parent):
         if not synapse_parent:
@@ -259,69 +259,3 @@ class SynapseUploader:
                 logging.info('  -> File uploaded')
 
         return synapse_file
-
-
-class LogFilter(logging.Filter):
-    FILTERS = [
-        '##################################################',
-        'Uploading file to Synapse storage',
-        'Connection pool is full, discarding connection:'
-    ]
-
-    def filter(self, record):
-        for filter in self.FILTERS:
-            if filter in record.msg:
-                return False
-        return True
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('project_id', metavar='project-id',
-                        help='Synapse Project ID to upload to (e.g., syn123456789).')
-    parser.add_argument('local_folder_path', metavar='local-folder-path',
-                        help='Path of the folder to upload.')
-    parser.add_argument('-r', '--remote-folder-path',
-                        help='Folder to upload to in Synapse.', default=None)
-    parser.add_argument('-d', '--depth',
-                        help='The maximum number of child folders or files under a Synapse Project/Folder.',
-                        type=int, default=SynapseUploader.MAX_SYNAPSE_DEPTH)
-    parser.add_argument('-u', '--username',
-                        help='Synapse username.', default=None)
-    parser.add_argument('-p', '--password',
-                        help='Synapse password.', default=None)
-    parser.add_argument('-l', '--log-level',
-                        help='Set the logging level.', default='INFO')
-
-    args = parser.parse_args()
-
-    log_level = getattr(logging, args.log_level.upper())
-    log_file_name = 'log.txt'
-
-    logging.basicConfig(
-        filename=log_file_name,
-        filemode='w',
-        format='%(asctime)s %(levelname)s: %(message)s',
-        level=log_level
-    )
-
-    # Add console logging.
-    console = logging.StreamHandler()
-    console.setLevel(log_level)
-    console.setFormatter(logging.Formatter('%(message)s'))
-    logging.getLogger().addHandler(console)
-
-    # Filter logs
-    log_filter = LogFilter()
-    for logger in [logging.getLogger(name) for name in logging.root.manager.loggerDict]:
-        logger.addFilter(log_filter)
-
-    SynapseUploader(username=args.username, password=args.password).upload(
-        args.project_id,
-        args.local_folder_path,
-        remote_path=args.remote_folder_path,
-        max_depth=args.depth)
-
-
-if __name__ == "__main__":
-    main()
