@@ -13,7 +13,8 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/ki-tools/synapse_uploader",
-    packages=setuptools.find_packages(exclude=['tests*']),
+    package_dir={"": "src"},
+    packages=setuptools.find_packages(where="src"),
     classifiers=(
         'Programming Language :: Python',
         'Programming Language :: Python :: 3.6',
@@ -22,7 +23,7 @@ setuptools.setup(
     ),
     entry_points={
         'console_scripts': [
-            "synapse-uploader = src.cli:main"
+            "synapse-uploader = synapse_uploader.cli:main"
         ]
     },
     install_requires=[

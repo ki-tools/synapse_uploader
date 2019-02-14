@@ -8,6 +8,6 @@ htmlcov
 *.pyc
 build
 /dist/
-/*.egg-info
+*/*.egg-info
 .coverage
 htmlcov

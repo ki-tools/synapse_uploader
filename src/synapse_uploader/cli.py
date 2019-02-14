@@ -83,7 +83,7 @@ def main():
         max_depth=args.depth,
         max_threads=args.threads,
         username=args.username,
-        password=args.password,
+        password=args.password
     ).upload()
 
 

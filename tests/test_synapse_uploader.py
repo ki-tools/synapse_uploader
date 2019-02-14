@@ -16,7 +16,7 @@ import os
 import uuid
 import getpass
 import pytest
-from src.synapse_uploader import SynapseUploader
+from src.synapse_uploader.synapse_uploader import SynapseUploader
 
 
 def mkdir(*path_segments):
