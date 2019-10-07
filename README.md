@@ -25,9 +25,9 @@ SYNAPSE_PASSWORD=your-synapse-password
 ## Usage
 
 ```text
-usage: synapse_uploader.py [-h] [-r REMOTE_FOLDER_PATH] [-d DEPTH]
-                           [-u USERNAME] [-p PASSWORD] [-l LOG_LEVEL]
-                           project-id local-folder-path
+usage: synapse-uploader [-h] [-r REMOTE_FOLDER_PATH] [-d DEPTH] [-t THREADS]
+                        [-u USERNAME] [-p PASSWORD] [-l LOG_LEVEL]
+                        project-id local-folder-path
 
 positional arguments:
   project-id            Synapse Project ID to upload to (e.g., syn123456789).
@@ -40,6 +40,8 @@ optional arguments:
   -d DEPTH, --depth DEPTH
                         The maximum number of child folders or files under a
                         Synapse Project/Folder.
+  -t THREADS, --threads THREADS
+                        The maximum number of threads to use.
   -u USERNAME, --username USERNAME
                         Synapse username.
   -p PASSWORD, --password PASSWORD
@@ -65,7 +67,9 @@ Upload all the folders and files in `~/my_study` to your Project ID `syn123456` 
 ## Development Setup
 
 ```bash
-make init_dev
+pipenv --three
+pipenv shell
+make pip_install
 make build
 make install_local
 ```
@@ -74,7 +78,5 @@ See [Makefile](Makefile) for all commands.
 ### Testing
 
 - Create and activate a virtual environment:
-  - `python3 -m venv .venv`
-  - `source .venv/bin/activate`
 - Copy [private.test.env.json](tests/templates/private.test.env.json) to the [tests](tests) directory and set each of the variables.
 - Run the tests: `make test`

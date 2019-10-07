@@ -1,17 +1,3 @@
-# Copyright 2018-present, Bill & Melinda Gates Foundation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
 import uuid
 import getpass
@@ -116,23 +102,23 @@ def test_synapse_client_value():
 def test_login(syn_client, monkeypatch, mocker):
     # Uses ENV
     syn_uploader = SynapseUploader('None', 'None')
-    syn_uploader.login() is True
+    syn_uploader._synapse_login() is True
     assert syn_uploader._synapse_client is not None
 
     # Uses the passed in params
     syn_uploader = SynapseUploader('None', 'None',
                                    username=os.environ['SYNAPSE_USERNAME'], password=os.environ['SYNAPSE_PASSWORD'])
-    assert syn_uploader.login() is True
+    assert syn_uploader._synapse_login() is True
     assert syn_uploader._synapse_client is not None
 
     # Uses the passed in client
     syn_uploader = SynapseUploader('None', 'None', synapse_client=syn_client)
-    syn_uploader.login() is True
+    syn_uploader._synapse_login() is True
     assert syn_uploader._synapse_client == syn_client
 
-    # Fails to login
+    # Fails to _synapse_login
     syn_uploader = SynapseUploader('None', 'None', username=uuid.uuid4(), password=uuid.uuid4())
-    assert syn_uploader.login() is False
+    assert syn_uploader._synapse_login() is False
     assert syn_uploader._synapse_client is None
 
     # Prompts for the username and password
@@ -146,16 +132,16 @@ def test_login(syn_client, monkeypatch, mocker):
         mocker.patch('builtins.input', return_value=mock_username)
         mocker.patch('getpass.getpass', return_value=mock_password)
         syn_uploader = SynapseUploader('None', 'None')
-        syn_uploader.login()
+        syn_uploader._synapse_login()
         assert syn_uploader._username == mock_username
         assert syn_uploader._password == mock_password
         input.assert_called_once()
         getpass.getpass.assert_called_once()
 
 
-def test_upload_bad_credentials(mocker):
+def test_upload_bad_credentials():
     syn_uploader = SynapseUploader('None', 'None', username=uuid.uuid4(), password=uuid.uuid4())
-    syn_uploader.upload()
+    syn_uploader.execute()
     assert syn_uploader._synapse_client is None
 
 
@@ -180,7 +166,7 @@ def test_upload_remote_path(syn_client, new_syn_project, new_temp_dir):
     folder2 = mkdir(folder1, 'folder2')
     mkfile(folder2, 'file3')
 
-    SynapseUploader(new_syn_project.id, new_temp_dir, remote_path=remote_path, synapse_client=syn_client).upload()
+    SynapseUploader(new_syn_project.id, new_temp_dir, remote_path=remote_path, synapse_client=syn_client).execute()
 
     parent = new_syn_project
     for segment in path_segments:
@@ -242,7 +228,7 @@ def test_upload(syn_client, new_syn_project, new_temp_dir):
     mkfile(folder3, 'file6')
     mkfile(folder3, 'file7', content='')  # Empty files should NOT get uploaded.
 
-    SynapseUploader(new_syn_project.id, new_temp_dir, synapse_client=syn_client).upload()
+    SynapseUploader(new_syn_project.id, new_temp_dir, synapse_client=syn_client).execute()
 
     syn_files, syn_file_names = get_syn_files(syn_client, new_syn_project)
     syn_folders, _ = get_syn_folders(syn_client, new_syn_project)
@@ -321,7 +307,7 @@ def test_upload_max_depth(syn_client, new_syn_project, new_temp_dir):
             mkfile(folder_path, 'file1-1'.format(i))
             mkfile(folder_path, 'file1-2'.format(i))
 
-    SynapseUploader(new_syn_project.id, new_temp_dir, max_depth=3, synapse_client=syn_client).upload()
+    SynapseUploader(new_syn_project.id, new_temp_dir, max_depth=3, synapse_client=syn_client).execute()
 
     syn_files, syn_file_names = get_syn_files(syn_client, new_syn_project)
     assert len(syn_files) == 2

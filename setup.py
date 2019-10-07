@@ -5,19 +5,21 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="synapse-uploader",
-    version="0.0.beta2",
+    version="0.0.b5",
     author="Patrick Stout",
     author_email="pstout@prevagroup.com",
     license="Apache2",
-    description="Synapse upload utility.",
+    description="Utility for uploading large datasets to Synapse.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/ki-tools/synapse_uploader",
     package_dir={"": "src"},
     packages=setuptools.find_packages(where="src"),
     classifiers=(
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 3.6',
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ),
@@ -27,6 +29,6 @@ setuptools.setup(
         ]
     },
     install_requires=[
-        'synapseclient==1.9.0',
+        "synapseclient>=1.9.2,<2.0.0"
     ]
 )

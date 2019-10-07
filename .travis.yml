@@ -1,11 +1,10 @@
 language: python
 python:
-  - "3.6"
-before_install:
-  - export LOG_LEVEL=DEBUG
+  - "3.7"
 install:
-  - pip install -r requirements.txt
+  - pip install pipenv
+  - pipenv install --dev
 script:
-  - pytest --cov
+  - pipenv run pytest --cov -v
 after_success:
   - coveralls

@@ -1,17 +1,3 @@
-# Copyright 2017-present, Bill & Melinda Gates Foundation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import os
 import getpass
 import time
@@ -19,8 +5,8 @@ import random
 import concurrent.futures
 import threading
 import logging
-import synapseclient
-from synapseclient import Project, Folder, File
+from datetime import datetime
+import synapseclient as syn
 
 
 class SynapseUploader:
@@ -41,7 +27,6 @@ class SynapseUploader:
                  synapse_client=None):
 
         self._synapse_project_id = synapse_project_id
-        self._local_path = local_path.rstrip(os.sep)
         self._remote_path = remote_path
         self._max_depth = max_depth
         self._max_threads = max_threads
@@ -49,9 +34,16 @@ class SynapseUploader:
         self._password = password
         self._synapse_client = synapse_client
 
+        var_path = os.path.expandvars(local_path)
+        expanded_path = os.path.expanduser(var_path)
+        self._local_path = os.path.abspath(expanded_path)
+
+        self.start_time = None
+        self.end_time = None
+
         self._thread_lock = threading.Lock()
         self._synapse_parents = {}
-        self._hasErrors = False
+        self._has_errors = False
 
         if max_depth > self.MAX_SYNAPSE_DEPTH:
             raise Exception('Maximum depth must be less than or equal to {0}.'.format(self.MAX_SYNAPSE_DEPTH))
@@ -64,7 +56,42 @@ class SynapseUploader:
             if len(self._remote_path) == 0:
                 self._remote_path = None
 
-    def login(self):
+    def execute(self):
+        self.start_time = datetime.now()
+        logging.info('Uploading to Project: {0}'.format(self._synapse_project_id))
+        logging.info('Uploading Directory: {0}'.format(self._local_path))
+
+        if self._remote_path:
+            logging.info('Uploading To: {0}'.format(self._remote_path))
+
+        if not self._synapse_login():
+            logging.error('Could not log into Synapse. Aborting.')
+            return
+
+        project = self._synapse_client.get(syn.Project(id=self._synapse_project_id))
+        self._set_synapse_parent(project)
+
+        parent = project
+
+        # Create the remote_path if specified.
+        if self._remote_path:
+            full_path = ''
+            for folder in filter(None, self._remote_path.split(os.sep)):
+                full_path = os.path.join(full_path, folder)
+                parent = self._create_folder_in_synapse(full_path, parent)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_threads) as executor:
+            self._upload_folder(executor, self._local_path, parent)
+
+        self.end_time = datetime.now()
+        logging.info('')
+        logging.info('Run time: {0}'.format(self.end_time - self.start_time))
+        
+        completion_status = 'With Errors' if self._has_errors else 'Successfully'
+
+        logging.info('Upload Completed {0}'.format(completion_status))
+
+    def _synapse_login(self):
         if self._synapse_client and self._synapse_client.credentials:
             logging.info('Already logged into Synapse.')
         else:
@@ -79,7 +106,7 @@ class SynapseUploader:
                 self._password = getpass.getpass(prompt='Synapse password: ')
 
             try:
-                self._synapse_client = synapseclient.Synapse()
+                self._synapse_client = syn.Synapse(skip_checks=True)
                 self._synapse_client.login(self._username, self._password, silent=True)
             except Exception as ex:
                 self._synapse_client = None
@@ -87,77 +114,47 @@ class SynapseUploader:
 
         return self._synapse_client is not None
 
-    def upload(self):
-        logging.info('Uploading to Project: {0}'.format(self._synapse_project_id))
-        logging.info('Uploading Directory: {0}'.format(self._local_path))
-
-        if self._remote_path:
-            logging.info('Uploading To: {0}'.format(self._remote_path))
-
-        if not self.login():
-            logging.error('Could not log into Synapse. Aborting.')
-            return
-
-        project = self._synapse_client.get(Project(id=self._synapse_project_id))
-        self.set_synapse_parent(project)
-
-        parent = project
-
-        # Create the remote_path if specified.
-        if self._remote_path:
-            full_path = ''
-            for folder in filter(None, self._remote_path.split(os.sep)):
-                full_path = os.path.join(full_path, folder)
-                parent = self.create_folder_in_synapse(full_path, parent)
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_threads) as executor:
-            self.upload_folder(executor, self._local_path, parent)
-
-        completion_status = 'With Errors' if self._hasErrors else 'Successfully'
-
-        logging.info('Upload Completed {0}'.format(completion_status))
-
-    def upload_folder(self, executor, local_path, synapse_parent):
+    def _upload_folder(self, executor, local_path, synapse_parent):
         if not synapse_parent:
-            self._hasErrors = True
-            logging.error('Parent not found, cannot upload folder: {0}'.format(local_path))
+            self._has_errors = True
+            logging.error('Parent not found, cannot execute folder: {0}'.format(local_path))
             return
 
         parent = synapse_parent
 
-        dirs, files = self.get_dirs_and_files(local_path)
+        dirs, files = self._get_dirs_and_files(local_path)
 
         child_count = 0
 
         # Upload the files
         for file_entry in files:
             if (child_count + 1) >= self._max_depth:
-                parent = self.create_folder_in_synapse('more', parent)
+                parent = self._create_folder_in_synapse('more', parent)
                 child_count = 0
 
-            executor.submit(self.upload_file_to_synapse, file_entry.path, parent)
+            executor.submit(self._upload_file_to_synapse, file_entry.path, parent)
             child_count += 1
 
         # Upload the directories.
         for dir_entry in dirs:
             if (child_count + 1) >= self._max_depth:
-                parent = self.create_folder_in_synapse('more', parent)
+                parent = self._create_folder_in_synapse('more', parent)
                 child_count = 0
 
-            syn_dir = self.create_folder_in_synapse(dir_entry.path, parent)
-            self.upload_folder(executor, dir_entry.path, syn_dir)
+            syn_dir = self._create_folder_in_synapse(dir_entry.path, parent)
+            self._upload_folder(executor, dir_entry.path, syn_dir)
             child_count += 1
 
-    def create_folder_in_synapse(self, path, synapse_parent):
+    def _create_folder_in_synapse(self, path, synapse_parent):
         synapse_folder = None
 
         if not synapse_parent:
-            self._hasErrors = True
+            self._has_errors = True
             logging.error('Parent not found, cannot create folder: {0}'.format(path))
             return synapse_folder
 
         folder_name = os.path.basename(path)
-        full_synapse_path = self.get_synapse_path(folder_name, synapse_parent)
+        full_synapse_path = self._get_synapse_path(folder_name, synapse_parent)
 
         max_attempts = 5
         attempt_number = 0
@@ -167,7 +164,7 @@ class SynapseUploader:
             try:
                 attempt_number += 1
                 exception = None
-                synapse_folder = self._synapse_client.store(Folder(name=folder_name, parent=synapse_parent),
+                synapse_folder = self._synapse_client.store(syn.Folder(name=folder_name, parent=synapse_parent),
                                                             forceVersion=False)
             except Exception as ex:
                 exception = ex
@@ -178,20 +175,20 @@ class SynapseUploader:
                     time.sleep(sleep_time)
 
         if exception:
-            self._hasErrors = True
+            self._has_errors = True
             logging.error('[Folder FAILED] {0} -> {1} : {2}'.format(path, full_synapse_path, str(exception)))
         else:
             logging.info('[Folder] {0} -> {1}'.format(path, full_synapse_path))
-            self.set_synapse_parent(synapse_folder)
+            self._set_synapse_parent(synapse_folder)
 
         return synapse_folder
 
-    def upload_file_to_synapse(self, local_file, synapse_parent):
+    def _upload_file_to_synapse(self, local_file, synapse_parent):
         synapse_file = None
 
         if not synapse_parent:
-            self._hasErrors = True
-            logging.error('Parent not found, cannot upload file: {0}'.format(local_file))
+            self._has_errors = True
+            logging.error('Parent not found, cannot execute file: {0}'.format(local_file))
             return synapse_file
 
         # Skip empty files since these will error when uploading via the synapseclient.
@@ -200,7 +197,7 @@ class SynapseUploader:
             return synapse_file
 
         file_name = os.path.basename(local_file)
-        full_synapse_path = self.get_synapse_path(file_name, synapse_parent)
+        full_synapse_path = self._get_synapse_path(file_name, synapse_parent)
 
         max_attempts = 5
         attempt_number = 0
@@ -210,7 +207,7 @@ class SynapseUploader:
             try:
                 attempt_number += 1
                 exception = None
-                synapse_file = self._synapse_client.store(File(path=local_file, parent=synapse_parent),
+                synapse_file = self._synapse_client.store(syn.File(path=local_file, parent=synapse_parent),
                                                           forceVersion=False)
             except Exception as ex:
                 exception = ex
@@ -221,37 +218,37 @@ class SynapseUploader:
                     time.sleep(sleep_time)
 
         if exception:
-            self._hasErrors = True
+            self._has_errors = True
             logging.error('[File FAILED] {0} -> {1} : {2}'.format(local_file, full_synapse_path, str(exception)))
         else:
             logging.info('[File] {0} -> {1}'.format(local_file, full_synapse_path))
 
         return synapse_file
 
-    def set_synapse_parent(self, parent):
+    def _set_synapse_parent(self, parent):
         with self._thread_lock:
             self._synapse_parents[parent.id] = parent
 
-    def get_synapse_parent(self, parent_id):
+    def _get_synapse_parent(self, parent_id):
         with self._thread_lock:
             return self._synapse_parents.get(parent_id, None)
 
-    def get_synapse_path(self, folder_or_file_name, parent):
+    def _get_synapse_path(self, folder_or_file_name, parent):
         segments = []
 
-        if isinstance(parent, Project):
+        if isinstance(parent, syn.Project):
             segments.insert(0, parent.name)
         else:
             next_parent = parent
             while next_parent:
                 segments.insert(0, next_parent.name)
-                next_parent = self.get_synapse_parent(next_parent.parentId)
+                next_parent = self._get_synapse_parent(next_parent.parentId)
 
         segments.append(folder_or_file_name)
 
         return os.path.join(*segments)
 
-    def get_dirs_and_files(self, local_path):
+    def _get_dirs_and_files(self, local_path):
         dirs = []
         files = []
 
