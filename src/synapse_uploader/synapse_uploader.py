@@ -209,8 +209,9 @@ class SynapseUploader:
             try:
                 attempt_number += 1
                 exception = None
-                synapse_file = self._synapse_client.store(syn.File(path=local_file, parent=synapse_parent),
-                                                          forceVersion=False)
+                synapse_file = self._synapse_client.store(
+                    syn.File(path=local_file, name=file_name, parent=synapse_parent),
+                    forceVersion=False)
             except Exception as ex:
                 exception = ex
                 logging.error('[File ERROR] {0} -> {1} : {2}'.format(local_file, full_synapse_path, str(ex)))
