@@ -1,6 +1,9 @@
+import os
 import logging
 import argparse
+from datetime import datetime
 from .synapse_uploader import SynapseUploader
+from .utils import Utils
 
 
 class LogFilter(logging.Filter):
@@ -19,31 +22,59 @@ class LogFilter(logging.Filter):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('project_id', metavar='project-id',
+    parser.add_argument('project_id',
+                        metavar='project-id',
                         help='Synapse Project ID to upload to (e.g., syn123456789).')
-    parser.add_argument('local_folder_path', metavar='local-folder-path',
+
+    parser.add_argument('local_folder_path',
+                        metavar='local-folder-path',
                         help='Path of the folder to upload.')
+
     parser.add_argument('-r', '--remote-folder-path',
-                        help='Folder to upload to in Synapse.', default=None)
+                        help='Folder to upload to in Synapse.',
+                        default=None)
+
     parser.add_argument('-d', '--depth',
                         help='The maximum number of child folders or files under a Synapse Project/Folder.',
-                        type=int, default=SynapseUploader.MAX_SYNAPSE_DEPTH)
+                        type=int,
+                        default=SynapseUploader.MAX_SYNAPSE_DEPTH)
+
     parser.add_argument('-t', '--threads',
-                        help='The maximum number of threads to use.', type=int, default=None)
+                        help='The maximum number of threads to use.',
+                        type=int,
+                        default=None)
+
     parser.add_argument('-u', '--username',
-                        help='Synapse username.', default=None)
+                        help='Synapse username.',
+                        default=None)
+
     parser.add_argument('-p', '--password',
-                        help='Synapse password.', default=None)
-    parser.add_argument('-l', '--log-level',
-                        help='Set the logging level.', default='INFO')
+                        help='Synapse password.',
+                        default=None)
+
+    parser.add_argument('-ll', '--log-level',
+                        help='Set the logging level.',
+                        default='INFO')
+
+    parser.add_argument('-ld', '--log-dir',
+                        help='Set the directory where the log file will be written.')
 
     args = parser.parse_args()
 
     log_level = getattr(logging, args.log_level.upper())
-    log_file_name = 'log.txt'
+
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    log_filename = '{0}.log'.format(timestamp)
+
+    if args.log_dir:
+        log_filename = os.path.join(Utils.expand_path(args.log_dir), log_filename)
+    else:
+        log_filename = os.path.join(Utils.app_log_dir(), log_filename)
+
+    Utils.ensure_dirs(os.path.dirname(log_filename))
 
     logging.basicConfig(
-        filename=log_file_name,
+        filename=log_filename,
         filemode='w',
         format='%(asctime)s %(levelname)s: %(message)s',
         level=log_level
@@ -60,6 +91,8 @@ def main():
     for logger in [logging.getLogger(name) for name in logging.root.manager.loggerDict]:
         logger.addFilter(log_filter)
 
+    print('Logging output to: {0}'.format(log_filename))
+
     SynapseUploader(
         args.project_id,
         args.local_folder_path,
@@ -69,6 +102,8 @@ def main():
         username=args.username,
         password=args.password
     ).execute()
+
+    print('Output logged to: {0}'.format(log_filename))
 
 
 if __name__ == "__main__":
