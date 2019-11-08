@@ -46,20 +46,6 @@ def syn_project(syn_test_helper):
     return syn_test_helper.create_project()
 
 
-@pytest.fixture(scope='session')
-def temp_file(syn_test_helper):
-    """
-    Generates a temp file containing the SynapseTestHelper.uniq_name.
-    """
-    fd, tmp_filename = tempfile.mkstemp()
-    with os.fdopen(fd, 'w') as tmp:
-        tmp.write(syn_test_helper.uniq_name())
-    yield tmp_filename
-
-    if os.path.isfile(tmp_filename):
-        os.remove(tmp_filename)
-
-
 @pytest.fixture()
 def new_syn_test_helper():
     """
@@ -81,3 +67,17 @@ def new_temp_dir():
     yield path
     if os.path.isdir(path):
         shutil.rmtree(path)
+
+
+@pytest.fixture()
+def new_temp_file(syn_test_helper):
+    """
+    Generates a temp file containing the SynapseTestHelper.uniq_name.
+    """
+    fd, tmp_filename = tempfile.mkstemp()
+    with os.fdopen(fd, 'w') as tmp:
+        tmp.write(syn_test_helper.uniq_name())
+    yield tmp_filename
+
+    if os.path.isfile(tmp_filename):
+        os.remove(tmp_filename)

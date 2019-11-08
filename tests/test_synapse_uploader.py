@@ -2,6 +2,7 @@ import os
 import uuid
 import getpass
 import pytest
+import synapseclient as syn
 from src.synapse_uploader.synapse_uploader import SynapseUploader
 
 
@@ -203,7 +204,7 @@ def test_upload_remote_path(syn_client, new_syn_project, new_temp_dir):
     assert syn_file_names == ['file3']
 
 
-def test_upload(syn_client, new_syn_project, new_temp_dir):
+def test_upload(syn_client, syn_test_helper, new_temp_dir):
     """
         Tests this scenario:
 
@@ -228,40 +229,80 @@ def test_upload(syn_client, new_syn_project, new_temp_dir):
     mkfile(folder3, 'file6')
     mkfile(folder3, 'file7', content='')  # Empty files should NOT get uploaded.
 
-    SynapseUploader(new_syn_project.id, new_temp_dir, synapse_client=syn_client).execute()
+    project1 = syn_test_helper.create_project()
+    project2 = syn_test_helper.create_project()
+
+    # Test uploading to a Project and Folder
+    upload_targets = [project1,
+                      syn_client.store(syn.Folder(name=syn_test_helper.uniq_name(), parent=project2))]
+
+    for upload_target in upload_targets:
+        SynapseUploader(upload_target.id, new_temp_dir, synapse_client=syn_client).execute()
+
+        syn_files, syn_file_names = get_syn_files(syn_client, upload_target)
+        syn_folders, _ = get_syn_folders(syn_client, upload_target)
+        assert len(syn_files) == 3
+        assert len(syn_folders) == 1
+        syn_folder = find_by_name(syn_folders, 'folder1')
+        assert syn_folder
+        assert syn_file_names == ['file1', 'file2', 'file3']
+
+        syn_files, _ = get_syn_files(syn_client, syn_folders[-1])
+        syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
+        assert len(syn_files) == 1
+        assert len(syn_folders) == 1
+        syn_file = find_by_name(syn_files, 'file4')
+        syn_folder = find_by_name(syn_folders, 'folder2')
+        assert syn_file
+        assert syn_folder
+
+        syn_files, _ = get_syn_files(syn_client, syn_folders[-1])
+        syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
+        assert len(syn_files) == 1
+        assert len(syn_folders) == 1
+        syn_file = find_by_name(syn_files, 'file5')
+        syn_folder = find_by_name(syn_folders, 'folder3')
+        assert syn_file
+        assert syn_folder
+
+        syn_files, _ = get_syn_files(syn_client, syn_folders[-1])
+        syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
+        assert len(syn_files) == 1
+        assert len(syn_folders) == 0
+        syn_file = find_by_name(syn_files, 'file6')
+        assert syn_file
+
+
+def test_upload_file(syn_client, syn_test_helper, new_syn_project, new_temp_file, new_temp_dir):
+    file_name = os.path.basename(new_temp_file)
+    syn_file = syn_test_helper.create_file(name=file_name, path=new_temp_file, parent=new_syn_project)
+
+    SynapseUploader(syn_file.id, new_temp_file, synapse_client=syn_client).execute()
 
     syn_files, syn_file_names = get_syn_files(syn_client, new_syn_project)
     syn_folders, _ = get_syn_folders(syn_client, new_syn_project)
-    assert len(syn_files) == 3
-    assert len(syn_folders) == 1
-    syn_folder = find_by_name(syn_folders, 'folder1')
-    assert syn_folder
-    assert syn_file_names == ['file1', 'file2', 'file3']
-
-    syn_files, _ = get_syn_files(syn_client, syn_folders[-1])
-    syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
-    assert len(syn_files) == 1
-    assert len(syn_folders) == 1
-    syn_file = find_by_name(syn_files, 'file4')
-    syn_folder = find_by_name(syn_folders, 'folder2')
-    assert syn_file
-    assert syn_folder
-
-    syn_files, _ = get_syn_files(syn_client, syn_folders[-1])
-    syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
-    assert len(syn_files) == 1
-    assert len(syn_folders) == 1
-    syn_file = find_by_name(syn_files, 'file5')
-    syn_folder = find_by_name(syn_folders, 'folder3')
-    assert syn_file
-    assert syn_folder
-
-    syn_files, _ = get_syn_files(syn_client, syn_folders[-1])
-    syn_folders, _ = get_syn_folders(syn_client, syn_folders[-1])
     assert len(syn_files) == 1
     assert len(syn_folders) == 0
-    syn_file = find_by_name(syn_files, 'file6')
-    assert syn_file
+    assert file_name in syn_file_names
+
+    # Test exceptions
+    with pytest.raises(Exception) as ex:
+        SynapseUploader(syn_file.id, new_temp_dir, synapse_client=syn_client).execute()
+    assert 'Local entity must be a file when remote entity is a file:' in str(ex.value)
+
+    with pytest.raises(Exception) as ex:
+        SynapseUploader(syn_file.id, new_temp_file, remote_path='/test', synapse_client=syn_client).execute()
+    assert 'Cannot specify a remote path when remote entity is a file:' in str(ex.value)
+
+    # Local filename: {0} does not match remote file name:
+    other_temp_file = mkfile(new_temp_dir, syn_test_helper.uniq_name())
+    other_temp_file_name = os.path.basename(other_temp_file)
+    other_syn_file = syn_test_helper.create_file(name=other_temp_file_name,
+                                                 path=other_temp_file,
+                                                 parent=new_syn_project)
+    with pytest.raises(Exception) as ex:
+        SynapseUploader(syn_file.id, other_temp_file, synapse_client=syn_client).execute()
+    assert 'Local filename: {0} does not match remote file name:'.format(other_temp_file_name) in str(ex.value)
 
 
 def test_upload_max_depth(syn_client, new_syn_project, new_temp_dir):

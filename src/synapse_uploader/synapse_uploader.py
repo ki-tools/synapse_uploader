@@ -62,26 +62,66 @@ class SynapseUploader:
             logging.error('Could not log into Synapse. Aborting.')
             return
 
-        project = self._synapse_client.get(syn.Project(id=self._synapse_project_id))
-        self._set_synapse_parent(project)
+        remote_entity = self._synapse_client.get(self._synapse_project_id, downloadFile=False)
+        remote_entity_is_file = False
 
-        logging.info('Uploading to Project: {0} ({1})'.format(project.name, project.id))
-        logging.info('Uploading Directory: {0}'.format(self._local_path))
+        if isinstance(remote_entity, syn.Project):
+            remote_type = 'Project'
+            self._set_synapse_parent(remote_entity)
+        elif isinstance(remote_entity, syn.Folder):
+            remote_type = 'Folder'
+            self._set_synapse_parent(remote_entity)
+        elif isinstance(remote_entity, syn.File):
+            remote_type = 'File'
+            remote_entity_is_file = True
+        else:
+            raise Exception('Remote entity must be a project, folder, or file. Found {0}'.format(type(remote_entity)))
 
-        if self._remote_path:
-            logging.info('Uploading to: {0}'.format(self._remote_path))
+        local_entity_is_file = False
 
-        parent = project
+        if os.path.isfile(self._local_path):
+            local_type = 'File'
+            local_entity_is_file = True
+        elif os.path.isdir(self._local_path):
+            local_type = 'Directory'
+        else:
+            raise Exception('Local entity must be a directory or file: {0}'.format(self._local_path))
 
-        # Create the remote_path if specified.
-        if self._remote_path:
-            full_path = ''
-            for folder in filter(None, self._remote_path.split(os.sep)):
-                full_path = os.path.join(full_path, folder)
-                parent = self._create_folder_in_synapse(full_path, parent)
+        if remote_entity_is_file and not local_entity_is_file:
+            raise Exception('Local entity must be a file when remote entity is a file: {0}'.format(self._local_path))
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_threads) as executor:
-            self._upload_folder(executor, self._local_path, parent)
+        if remote_entity_is_file and self._remote_path:
+            raise Exception(
+                'Cannot specify a remote path when remote entity is a file: {0}'.format(self._local_path))
+
+        logging.info('Uploading to {0}: {1} ({2})'.format(remote_type, remote_entity.name, remote_entity.id))
+        logging.info('Uploading {0}: {1}'.format(local_type, self._local_path))
+
+        if remote_entity_is_file:
+            remote_file_name = remote_entity['_file_handle']['fileName']
+            local_file_name = os.path.basename(self._local_path)
+            if local_file_name != remote_file_name:
+                raise Exception('Local filename: {0} does not match remote file name: {1}'.format(local_file_name,
+                                                                                                  remote_file_name))
+
+            remote_parent = self._synapse_client.get(remote_entity.get('parentId'))
+            self._set_synapse_parent(remote_parent)
+            self._upload_file_to_synapse(self._local_path, remote_parent)
+        else:
+            if self._remote_path:
+                logging.info('Uploading to: {0}'.format(self._remote_path))
+
+            remote_parent = remote_entity
+
+            # Create the remote_path if specified.
+            if self._remote_path:
+                full_path = ''
+                for folder in filter(None, self._remote_path.split(os.sep)):
+                    full_path = os.path.join(full_path, folder)
+                    remote_parent = self._create_folder_in_synapse(full_path, remote_parent)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_threads) as executor:
+                self._upload_folder(executor, self._local_path, remote_parent)
 
         self.end_time = datetime.now()
         logging.info('')
@@ -96,7 +136,6 @@ class SynapseUploader:
         if self._synapse_client and self._synapse_client.credentials:
             logging.info('Already logged into Synapse.')
         else:
-            logging.info('Logging into Synapse...')
             self._username = self._username or os.getenv('SYNAPSE_USERNAME')
             self._password = self._password or os.getenv('SYNAPSE_PASSWORD')
 
@@ -106,6 +145,7 @@ class SynapseUploader:
             if not self._password:
                 self._password = getpass.getpass(prompt='Synapse password: ')
 
+            logging.info('Logging into Synapse as: {0}'.format(self._username))
             try:
                 self._synapse_client = syn.Synapse(skip_checks=True)
                 self._synapse_client.login(self._username, self._password, silent=True)

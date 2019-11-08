@@ -39,13 +39,13 @@ def test_dispose_of(syn_test_helper):
     assert len(syn_test_helper._trash) == 4
 
 
-def test_dispose(syn_client, syn_test_helper, temp_file):
+def test_dispose(syn_client, syn_test_helper, new_temp_file):
     project = syn_client.store(Project(name=syn_test_helper.uniq_name()))
 
     folder = syn_client.store(
         Folder(name=syn_test_helper.uniq_name(prefix='Folder '), parent=project))
 
-    file = syn_client.store(File(name=syn_test_helper.uniq_name(prefix='File '), path=temp_file, parent=folder))
+    file = syn_client.store(File(name=syn_test_helper.uniq_name(prefix='File '), path=new_temp_file, parent=folder))
 
     syn_objects = [project, folder, file]
 
@@ -64,7 +64,7 @@ def test_dispose(syn_client, syn_test_helper, temp_file):
         assert "Not Found" in err_str or "cannot be found" in err_str or "is in trash can" in err_str or "does not exist" in err_str
 
     try:
-        os.remove(temp_file)
+        os.remove(new_temp_file)
     except:
         pass
 
