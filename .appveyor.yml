@@ -1,0 +1,17 @@
+environment:
+  PYTHONIOENCODING: UTF-8
+  matrix:
+    - PYTHON: "C:\\Python36-x64"
+    - PYTHON: "C:\\Python37-x64"
+before_install:
+  - export LOG_LEVEL=DEBUG
+install:
+  - set PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
+  - python -m pip install -U pip
+  - python -m pip install -U pipenv
+  - pipenv install --dev
+  - pip install coveralls
+build: off
+test_script:
+  - python --version
+  - python -m pytest -v -s --cov
