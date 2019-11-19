@@ -7,14 +7,14 @@ environment:
 
 install:
   - set PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
-  - del Pipfile.lock
+  - set PYEXE=%PYTHON%\\python.exe
   - pip install pipenv
-  - pipenv --python=%PYTHON%\\python.exe
+  - pipenv --python=%PYEXE%
   - pipenv install --dev
-  - pip install coveralls
+  - pipenv install coveralls
 
 build: off
 
 test_script:
-  - python --version
-  - pipenv run pytest -v -s --cov
+  - %PYEXE% --version
+  - %PYEXE% -m pytest -v -s --cov
