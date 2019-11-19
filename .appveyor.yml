@@ -16,4 +16,4 @@ build: off
 
 test_script:
   - python --version
-  - python -m pytest -v -s --cov
+  - pytest -v -s --cov
