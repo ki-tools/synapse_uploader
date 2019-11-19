@@ -1,6 +1,7 @@
 environment:
   PYTHONIOENCODING: UTF-8
   LOG_LEVEL: DEBUG
+  PIPENV_IGNORE_VIRTUALENVS: 0
   matrix:
     - PYTHON: "C:\\Python36-x64"
     - PYTHON: "C:\\Python37-x64"
@@ -8,7 +9,6 @@ environment:
 install:
   - set PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
   - pip install pipenv
-  - pipenv --python=%PYTHON%\\python.exe
   - pipenv install --dev
   - pipenv install coveralls
 
@@ -16,4 +16,4 @@ build: off
 
 test_script:
   - python --version
-  - pipenv run pytest -v -s --cov
+  - python -m pytest -v -s --cov
