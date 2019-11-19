@@ -16,5 +16,5 @@ install:
 build: off
 
 test_script:
-  - "%PYEXE%" --version
-  - "%PYEXE%" -m pytest -v -s --cov
+  - "%PYEXE% --version"
+  - "%PYEXE% -m pytest -v -s --cov"
