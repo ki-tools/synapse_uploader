@@ -7,13 +7,13 @@ environment:
 
 install:
   - set PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
-  - python -m pip install -U pip
-  - python -m pip install -U pipenv
+  - %PYTHON%\\python.exe -m pip install -U pip
+  - %PYTHON%\\python.exe -m pip install -U pipenv
   - pipenv install --python=%PYTHON%\\python.exe --dev
   - pip install coveralls
 
 build: off
 
 test_script:
-  - python --version
-  - python -m pytest -v -s --cov
+  - %PYTHON%\\python.exe --version
+  - %PYTHON%\\python.exe -m pytest -v -s --cov
