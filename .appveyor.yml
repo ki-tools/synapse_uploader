@@ -1,7 +1,7 @@
 environment:
   PYTHONIOENCODING: UTF-8
   LOG_LEVEL: DEBUG
-  PIPENV_IGNORE_VIRTUALENVS: 0
+  PIPENV_IGNORE_VIRTUALENVS: 1
   matrix:
     - PYTHON: "C:\\Python36-x64"
     - PYTHON: "C:\\Python37-x64"
