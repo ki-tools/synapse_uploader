@@ -5,11 +5,11 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="synapse-uploader",
-    version="0.0.b8",
+    version="0.0.1",
     author="Patrick Stout",
     author_email="pstout@prevagroup.com",
     license="Apache2",
-    description="Utility for uploading large datasets to Synapse.",
+    description="Utility to upload a directory and files to Synapse.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/ki-tools/synapse_uploader",
@@ -29,6 +29,6 @@ setuptools.setup(
         ]
     },
     install_requires=[
-        "synapseclient>=1.9.2,<2.0.0"
+        "synapseclient>=1.9.4,<2.0.0"
     ]
 )

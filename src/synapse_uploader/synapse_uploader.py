@@ -18,7 +18,7 @@ class SynapseUploader:
     MIN_SYNAPSE_DEPTH = 2
 
     def __init__(self,
-                 synapse_project_id,
+                 synapse_entity_id,
                  local_path,
                  remote_path=None,
                  max_depth=MAX_SYNAPSE_DEPTH,
@@ -27,7 +27,7 @@ class SynapseUploader:
                  password=None,
                  synapse_client=None):
 
-        self._synapse_project_id = synapse_project_id
+        self._synapse_entity_id = synapse_entity_id
         self._local_path = Utils.expand_path(local_path)
         self._remote_path = remote_path
         self._max_depth = max_depth
@@ -62,7 +62,7 @@ class SynapseUploader:
             logging.error('Could not log into Synapse. Aborting.')
             return
 
-        remote_entity = self._synapse_client.get(self._synapse_project_id, downloadFile=False)
+        remote_entity = self._synapse_client.get(self._synapse_entity_id, downloadFile=False)
         remote_entity_is_file = False
 
         if isinstance(remote_entity, syn.Project):

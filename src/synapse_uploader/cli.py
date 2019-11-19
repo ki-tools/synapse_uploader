@@ -22,13 +22,13 @@ class LogFilter(logging.Filter):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('project_id',
-                        metavar='project-id',
-                        help='Synapse Project ID to upload to (e.g., syn123456789).')
+    parser.add_argument('entity_id',
+                        metavar='entity-id',
+                        help='Synapse entity ID to upload to (e.g., syn123456789).')
 
-    parser.add_argument('local_folder_path',
-                        metavar='local-folder-path',
-                        help='Path of the folder to upload.')
+    parser.add_argument('local_path',
+                        metavar='local-path',
+                        help='Path of the directory or file to upload.')
 
     parser.add_argument('-r', '--remote-folder-path',
                         help='Folder to upload to in Synapse.',
@@ -94,8 +94,8 @@ def main():
     print('Logging output to: {0}'.format(log_filename))
 
     SynapseUploader(
-        args.project_id,
-        args.local_folder_path,
+        args.entity_id,
+        args.local_path,
         remote_path=args.remote_folder_path,
         max_depth=args.depth,
         max_threads=args.threads,

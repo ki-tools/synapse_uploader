@@ -1,6 +1,6 @@
 # Synapse Uploader
 
-A utility to upload a directory and all its contents to a [Synapse](https://www.synapse.org/) Project.
+Utility to upload a directory and files to [Synapse](https://www.synapse.org/).
 
 ## Dependencies
 
@@ -26,12 +26,13 @@ SYNAPSE_PASSWORD=your-synapse-password
 
 ```text
 usage: synapse-uploader [-h] [-r REMOTE_FOLDER_PATH] [-d DEPTH] [-t THREADS]
-                        [-u USERNAME] [-p PASSWORD] [-l LOG_LEVEL]
-                        project-id local-folder-path
+                        [-u USERNAME] [-p PASSWORD] [-ll LOG_LEVEL]
+                        [-ld LOG_DIR]
+                        entity-id local-path
 
 positional arguments:
-  project-id            Synapse Project ID to upload to (e.g., syn123456789).
-  local-folder-path     Path of the folder to upload.
+  entity-id             Synapse entity ID to upload to (e.g., syn123456789).
+  local-path            Path of the directory or file to upload.
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -46,8 +47,10 @@ optional arguments:
                         Synapse username.
   -p PASSWORD, --password PASSWORD
                         Synapse password.
-  -l LOG_LEVEL, --log-level LOG_LEVEL
+  -ll LOG_LEVEL, --log-level LOG_LEVEL
                         Set the logging level.
+  -ld LOG_DIR, --log-dir LOG_DIR
+                        Set the directory where the log file will be written.
 ```
 
 ## Examples

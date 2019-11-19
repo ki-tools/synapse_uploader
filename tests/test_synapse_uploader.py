@@ -39,7 +39,7 @@ def find_by_name(list, name):
 def test_synapse_project_value():
     syn_id = 'syn123'
     syn_uploader = SynapseUploader(syn_id, 'None')
-    assert syn_uploader._synapse_project_id == syn_id
+    assert syn_uploader._synapse_entity_id == syn_id
 
 
 def test_local_path_value():
