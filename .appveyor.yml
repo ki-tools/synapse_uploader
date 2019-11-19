@@ -9,7 +9,7 @@ install:
   - set PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
   - pip install pipenv
   - pipenv install --dev --system
-  - pipenv install coveralls --system
+  - pipenv install coveralls
 
 build: off
 
