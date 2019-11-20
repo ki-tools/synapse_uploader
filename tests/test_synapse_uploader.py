@@ -43,14 +43,14 @@ def test_synapse_project_value():
 
 
 def test_local_path_value():
-    local_path = '/one/two/three'
+    local_path = os.getcwd()
     syn_uploader = SynapseUploader('None', local_path)
     assert syn_uploader._local_path == local_path
 
 
 def test_remote_path_value():
     path_segments = ['one', 'two', 'three']
-    remote_path = os.path.join(*path_segments)
+    remote_path = os.sep.join(path_segments)
 
     syn_uploader = SynapseUploader('None', 'None', remote_path=remote_path)
     assert syn_uploader._remote_path == remote_path
