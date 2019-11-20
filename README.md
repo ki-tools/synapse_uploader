@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/ki-tools/synapse_uploader.svg?branch=master)](https://travis-ci.org/ki-tools/synapse_uploader)
+[![Coverage Status](https://coveralls.io/repos/github/ki-tools/synapse_uploader/badge.svg?branch=master)](https://coveralls.io/github/ki-tools/synapse_uploader?branch=master)
+
 # Synapse Uploader
 
 Utility to upload a directory and files to [Synapse](https://www.synapse.org/).
