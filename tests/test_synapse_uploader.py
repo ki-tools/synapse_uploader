@@ -63,7 +63,7 @@ def test_remote_path_value():
     assert syn_uploader._remote_path == 'one'
 
     syn_uploader = SynapseUploader('None', 'None', remote_path='{0} one {0} two {0} three {0}'.format(os.sep))
-    assert syn_uploader._remote_path == 'one/two/three'
+    assert syn_uploader._remote_path == remote_path
 
 
 def test_max_depth_value():
