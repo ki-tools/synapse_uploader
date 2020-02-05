@@ -238,9 +238,6 @@ class SynapseUploader:
             logging.info('Skipping empty file: {0}'.format(local_file))
             return synapse_file
 
-        file_name = os.path.basename(local_file)
-        full_synapse_path = self._get_synapse_path(file_name, synapse_parent)
-
         max_attempts = 5
         attempt_number = 0
         exception = None
@@ -250,7 +247,7 @@ class SynapseUploader:
                 attempt_number += 1
                 exception = None
                 synapse_file = self._synapse_client.store(
-                    syn.File(path=local_file, name=file_name, parent=synapse_parent),
+                    syn.File(path=local_file, parent=synapse_parent),
                     forceVersion=False)
             except Exception as ex:
                 exception = ex
