@@ -57,7 +57,7 @@ def test_dispose(syn_client, syn_test_helper, new_temp_file):
     assert len(syn_test_helper._trash) == 0
 
     for syn_obj in syn_objects:
-        with pytest.raises(synapseclient.exceptions.SynapseHTTPError) as ex:
+        with pytest.raises(synapseclient.core.exceptions.SynapseHTTPError) as ex:
             syn_client.get(syn_obj, downloadFile=False)
 
         err_str = str(ex.value)
