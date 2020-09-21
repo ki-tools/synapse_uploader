@@ -1,11 +1,12 @@
 import setuptools
+from src.synapse_uploader._version import __version__
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="synapse-uploader",
-    version="0.0.2",
+    version=__version__,
     author="Patrick Stout",
     author_email="pstout@prevagroup.com",
     license="Apache2",

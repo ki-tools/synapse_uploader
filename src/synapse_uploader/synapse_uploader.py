@@ -5,7 +5,7 @@ import random
 import concurrent.futures
 import threading
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 import synapseclient as syn
 from .utils import Utils
 
@@ -25,7 +25,8 @@ class SynapseUploader:
                  max_threads=None,
                  username=None,
                  password=None,
-                 synapse_client=None):
+                 synapse_client=None,
+                 force_upload=False):
 
         self._synapse_entity_id = synapse_entity_id
         self._local_path = Utils.expand_path(local_path)
@@ -35,6 +36,7 @@ class SynapseUploader:
         self._username = username
         self._password = password
         self._synapse_client = synapse_client
+        self._force_upload = force_upload
 
         self.start_time = None
         self.end_time = None
@@ -61,6 +63,13 @@ class SynapseUploader:
             self.has_errors = True
             logging.error('Could not log into Synapse. Aborting.')
             return
+
+        if self._force_upload:
+            # NOTE: The cache must be purged in order to force the file to re-upload.
+            print('Forcing upload. Cache will be purged. Entity versions will be incremented.')
+            # Set the purge date way in the future to account for local time slop.
+            purge_count = self._synapse_client.cache.purge(datetime.today() + timedelta(weeks=52))
+            print('{0} files purged from cache.'.format(purge_count))
 
         remote_entity = self._synapse_client.get(self._synapse_entity_id, downloadFile=False)
         remote_entity_is_file = False
@@ -207,7 +216,7 @@ class SynapseUploader:
                 attempt_number += 1
                 exception = None
                 synapse_folder = self._synapse_client.store(syn.Folder(name=folder_name, parent=synapse_parent),
-                                                            forceVersion=False)
+                                                            forceVersion=self._force_upload)
             except Exception as ex:
                 exception = ex
                 logging.error('[Folder ERROR] {0} -> {1} : {2}'.format(path, full_synapse_path, str(ex)))
@@ -251,7 +260,7 @@ class SynapseUploader:
                 exception = None
                 synapse_file = self._synapse_client.store(
                     syn.File(path=local_file, name=file_name, parent=synapse_parent),
-                    forceVersion=False)
+                    forceVersion=self._force_upload)
             except Exception as ex:
                 exception = ex
                 logging.error('[File ERROR] {0} -> {1} : {2}'.format(local_file, full_synapse_path, str(ex)))

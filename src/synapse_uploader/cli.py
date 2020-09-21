@@ -2,6 +2,7 @@ import os
 import logging
 import argparse
 from datetime import datetime
+from ._version import __version__
 from .synapse_uploader import SynapseUploader
 from .utils import Utils
 
@@ -22,6 +23,7 @@ class LogFilter(logging.Filter):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--version', action='version', version='%(prog)s {0}'.format(__version__))
     parser.add_argument('entity_id',
                         metavar='entity-id',
                         help='Synapse entity ID to upload to (e.g., syn123456789).')
@@ -58,6 +60,11 @@ def main():
 
     parser.add_argument('-ld', '--log-dir',
                         help='Set the directory where the log file will be written.')
+
+    parser.add_argument('-f', '--force-upload',
+                        help='Force files to be re-uploaded. This will clear the local Synapse cache and increment each file\'s version.',
+                        default=False,
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -100,7 +107,8 @@ def main():
         max_depth=args.depth,
         max_threads=args.threads,
         username=args.username,
-        password=args.password
+        password=args.password,
+        force_upload=args.force_upload
     ).execute()
 
     print('Output logged to: {0}'.format(log_filename))

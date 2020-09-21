@@ -28,9 +28,9 @@ SYNAPSE_PASSWORD=your-synapse-password
 ## Usage
 
 ```text
-usage: synapse-uploader [-h] [-r REMOTE_FOLDER_PATH] [-d DEPTH] [-t THREADS]
-                        [-u USERNAME] [-p PASSWORD] [-ll LOG_LEVEL]
-                        [-ld LOG_DIR]
+usage: synapse-uploader [-h] [--version] [-r REMOTE_FOLDER_PATH] [-d DEPTH]
+                        [-t THREADS] [-u USERNAME] [-p PASSWORD]
+                        [-ll LOG_LEVEL] [-ld LOG_DIR] [-f]
                         entity-id local-path
 
 positional arguments:
@@ -39,6 +39,7 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
+  --version             show program's version number and exit
   -r REMOTE_FOLDER_PATH, --remote-folder-path REMOTE_FOLDER_PATH
                         Folder to upload to in Synapse.
   -d DEPTH, --depth DEPTH
@@ -54,6 +55,8 @@ optional arguments:
                         Set the logging level.
   -ld LOG_DIR, --log-dir LOG_DIR
                         Set the directory where the log file will be written.
+  -f, --force-upload    Force files to be re-uploaded. This will clear the
+                        local Synapse cache and increment each file's version.
 ```
 
 ## Examples

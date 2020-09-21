@@ -94,6 +94,12 @@ def test_password_value():
     assert syn_uploader._password == password
 
 
+def test_password_value():
+    for b_value in [True, False]:
+        syn_uploader = SynapseUploader('None', 'None', force_upload=b_value)
+        assert syn_uploader._force_upload == b_value
+
+
 def test_synapse_client_value():
     client = object()
     syn_uploader = SynapseUploader('None', 'None', synapse_client=client)
@@ -303,6 +309,20 @@ def test_upload_file(syn_client, syn_test_helper, new_syn_project, new_temp_file
     with pytest.raises(Exception) as ex:
         SynapseUploader(syn_file.id, other_temp_file, synapse_client=syn_client).execute()
     assert 'Local filename: {0} does not match remote file name:'.format(other_temp_file_name) in str(ex.value)
+
+
+def test_force_upload(syn_client, syn_test_helper, new_syn_project, new_temp_file):
+    file_name = os.path.basename(new_temp_file)
+    syn_file = syn_test_helper.create_file(name=file_name, path=new_temp_file, parent=new_syn_project)
+    assert syn_file.versionNumber == 1
+
+    SynapseUploader(syn_file.id, new_temp_file, synapse_client=syn_client).execute()
+    syn_file = syn_client.get(syn_file.id)
+    assert syn_file.versionNumber == 1
+
+    SynapseUploader(syn_file.id, new_temp_file, force_upload=True, synapse_client=syn_client).execute()
+    syn_file = syn_client.get(syn_file.id)
+    assert syn_file.versionNumber == 2
 
 
 def test_upload_max_depth(syn_client, new_syn_project, new_temp_dir):
