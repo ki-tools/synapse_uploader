@@ -94,7 +94,7 @@ def test_password_value():
     assert syn_uploader._password == password
 
 
-def test_password_value():
+def test_force_upload_value():
     for b_value in [True, False]:
         syn_uploader = SynapseUploader('None', 'None', force_upload=b_value)
         assert syn_uploader._force_upload == b_value
@@ -104,6 +104,14 @@ def test_synapse_client_value():
     client = object()
     syn_uploader = SynapseUploader('None', 'None', synapse_client=client)
     assert syn_uploader._synapse_client == client
+
+
+def test_cache_dir(new_temp_dir):
+    syn_uploader = SynapseUploader('None', 'None', cache_dir=new_temp_dir)
+    syn_uploader._synapse_login() is True
+    full_cache_dir = os.path.join(new_temp_dir, '.synapseCache')
+    assert syn_uploader._synapse_client.cache.cache_root_dir == full_cache_dir
+    assert os.path.isdir(full_cache_dir)
 
 
 def test_login(syn_client, monkeypatch, mocker):
@@ -312,17 +320,23 @@ def test_upload_file(syn_client, syn_test_helper, new_syn_project, new_temp_file
 
 
 def test_force_upload(syn_client, syn_test_helper, new_syn_project, new_temp_file):
+    annotations = {"one": ["two"]}
+
     file_name = os.path.basename(new_temp_file)
-    syn_file = syn_test_helper.create_file(name=file_name, path=new_temp_file, parent=new_syn_project)
+    syn_file = syn_test_helper.create_file(name=file_name, path=new_temp_file, parent=new_syn_project,
+                                           annotations=annotations)
     assert syn_file.versionNumber == 1
+    assert syn_file.annotations == annotations
 
     SynapseUploader(syn_file.id, new_temp_file, synapse_client=syn_client).execute()
     syn_file = syn_client.get(syn_file.id)
     assert syn_file.versionNumber == 1
+    assert syn_file.annotations == annotations
 
     SynapseUploader(syn_file.id, new_temp_file, force_upload=True, synapse_client=syn_client).execute()
     syn_file = syn_client.get(syn_file.id)
     assert syn_file.versionNumber == 2
+    assert syn_file.annotations == annotations
 
 
 def test_upload_max_depth(syn_client, new_syn_project, new_temp_dir):

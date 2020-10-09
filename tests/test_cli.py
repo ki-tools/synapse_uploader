@@ -3,7 +3,8 @@ from src.synapse_uploader.synapse_uploader import SynapseUploader
 
 
 def test_cli(mocker):
-    args = ['', 'syn123', '/tmp', '-r', '10', '-d', '20', '-t', '30', '-u', '40', '-p', '50', '-ll', 'debug', '-f']
+    args = ['', 'syn123', '/tmp', '-r', '10', '-d', '20', '-t', '30', '-u', '40', '-p', '50', '-ll', 'debug', '-f',
+            '-cd', '/tmp/cache']
     mocker.patch('sys.argv', args)
     mocker.patch('src.synapse_uploader.synapse_uploader.SynapseUploader.execute', return_value=None)
     mock_init = mocker.patch.object(SynapseUploader, '__init__', return_value=None)
@@ -18,5 +19,6 @@ def test_cli(mocker):
         max_threads=30,
         username='40',
         password='50',
-        force_upload=True
+        force_upload=True,
+        cache_dir='/tmp/cache'
     )

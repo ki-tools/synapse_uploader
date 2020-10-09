@@ -30,7 +30,7 @@ SYNAPSE_PASSWORD=your-synapse-password
 ```text
 usage: synapse-uploader [-h] [--version] [-r REMOTE_FOLDER_PATH] [-d DEPTH]
                         [-t THREADS] [-u USERNAME] [-p PASSWORD]
-                        [-ll LOG_LEVEL] [-ld LOG_DIR] [-f]
+                        [-ll LOG_LEVEL] [-ld LOG_DIR] [-f] [-cd CACHE_DIR]
                         entity-id local-path
 
 positional arguments:
@@ -57,19 +57,22 @@ optional arguments:
                         Set the directory where the log file will be written.
   -f, --force-upload    Force files to be re-uploaded. This will clear the
                         local Synapse cache and increment each file's version.
+  -cd CACHE_DIR, --cache-dir CACHE_DIR
+                        Set the directory where the Synapse cache will be
+                        stored.
 ```
 
 ## Examples
 
 Upload all the folders and files in `~/my_study` to your Project ID `syn123456`:
 
-- Linux: `synapse_uploader syn123456 ~/my_study`
-- Windows: `synapse_uploader syn123456 %USERPROFILE%\my_study`
+- Linux: `synapse-uploader syn123456 ~/my_study`
+- Windows: `synapse-uploader syn123456 %USERPROFILE%\my_study`
 
 Upload all the folders and files in `~/my_study` to your Project ID `syn123456` in the `drafts/my_study` folder:
 
-- Linux: `synapse_uploader syn123456 ~/my_study -r drafts/my_study`
-- Windows: `synapse_uploader syn123456 %USERPROFILE%\my_study -r drafts\my_study`
+- Linux: `synapse-uploader syn123456 ~/my_study -r drafts/my_study`
+- Windows: `synapse-uploader syn123456 %USERPROFILE%\my_study -r drafts\my_study`
 
 > Note: The correct path separator (`\` for Windows and `/` for Linux) must be used in both the `local-folder-path` and the `remote-folder-path`.
 

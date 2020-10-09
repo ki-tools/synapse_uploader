@@ -65,6 +65,8 @@ def main():
                         help='Force files to be re-uploaded. This will clear the local Synapse cache and increment each file\'s version.',
                         default=False,
                         action='store_true')
+    parser.add_argument('-cd', '--cache-dir',
+                        help='Set the directory where the Synapse cache will be stored.')
 
     args = parser.parse_args()
 
@@ -108,7 +110,8 @@ def main():
         max_threads=args.threads,
         username=args.username,
         password=args.password,
-        force_upload=args.force_upload
+        force_upload=args.force_upload,
+        cache_dir=args.cache_dir
     ).execute()
 
     print('Output logged to: {0}'.format(log_filename))

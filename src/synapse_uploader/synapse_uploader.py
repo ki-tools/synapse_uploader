@@ -5,7 +5,8 @@ import random
 import concurrent.futures
 import threading
 import logging
-from datetime import datetime, timedelta
+import functools
+from datetime import datetime
 import synapseclient as syn
 from .utils import Utils
 
@@ -26,7 +27,8 @@ class SynapseUploader:
                  username=None,
                  password=None,
                  synapse_client=None,
-                 force_upload=False):
+                 force_upload=False,
+                 cache_dir=None):
 
         self._synapse_entity_id = synapse_entity_id
         self._local_path = Utils.expand_path(local_path)
@@ -37,6 +39,7 @@ class SynapseUploader:
         self._password = password
         self._synapse_client = synapse_client
         self._force_upload = force_upload
+        self._cache_dir = cache_dir
 
         self.start_time = None
         self.end_time = None
@@ -65,11 +68,7 @@ class SynapseUploader:
             return
 
         if self._force_upload:
-            # NOTE: The cache must be purged in order to force the file to re-upload.
-            print('Forcing upload. Cache will be purged. Entity versions will be incremented.')
-            # Set the purge date way in the future to account for local time slop.
-            purge_count = self._synapse_client.cache.purge(datetime.today() + timedelta(weeks=52))
-            print('{0} files purged from cache.'.format(purge_count))
+            print('Forcing upload. Entity versions will be incremented.')
 
         remote_entity = self._synapse_client.get(self._synapse_entity_id, downloadFile=False)
         remote_entity_is_file = False
@@ -157,6 +156,8 @@ class SynapseUploader:
             logging.info('Logging into Synapse as: {0}'.format(self._username))
             try:
                 self._synapse_client = syn.Synapse(skip_checks=True)
+                if self._cache_dir:
+                    self._synapse_client.cache.cache_root_dir = os.path.join(self._cache_dir, '.synapseCache')
                 self._synapse_client.login(self._username, self._password, silent=True)
             except Exception as ex:
                 self._synapse_client = None
@@ -243,7 +244,8 @@ class SynapseUploader:
             return synapse_file
 
         # Skip empty files since these will error when uploading via the synapseclient.
-        if os.path.getsize(local_file) < 1:
+        local_file_size = os.path.getsize(local_file)
+        if local_file_size < 1:
             logging.info('Skipping empty file: {0}'.format(local_file))
             return synapse_file
 
@@ -253,14 +255,29 @@ class SynapseUploader:
         max_attempts = 5
         attempt_number = 0
         exception = None
+        log_success_prefix = 'File'
 
         while attempt_number < max_attempts and not synapse_file:
             try:
                 attempt_number += 1
                 exception = None
-                synapse_file = self._synapse_client.store(
-                    syn.File(path=local_file, name=file_name, parent=synapse_parent),
-                    forceVersion=self._force_upload)
+                needs_upload = True
+
+                file_obj = self._find_synapse_file(synapse_parent['id'], local_file)
+                if file_obj:
+                    file_obj.path = local_file
+                    if self._force_upload:
+                        self._synapse_client.cache.remove(file_obj)
+                    else:
+                        if file_obj['_file_handle']['contentSize'] == local_file_size and \
+                                file_obj['_file_handle']['contentMd5'] == Utils.get_md5(local_file):
+                            needs_upload = False
+                            log_success_prefix = 'File is Current'
+                else:
+                    file_obj = syn.File(path=local_file, name=file_name, parent=synapse_parent)
+
+                if needs_upload or self._force_upload:
+                    synapse_file = self._synapse_client.store(file_obj, forceVersion=self._force_upload)
             except Exception as ex:
                 exception = ex
                 logging.error('[File ERROR] {0} -> {1} : {2}'.format(local_file, full_synapse_path, str(ex)))
@@ -273,9 +290,36 @@ class SynapseUploader:
             self.has_errors = True
             logging.error('[File FAILED] {0} -> {1} : {2}'.format(local_file, full_synapse_path, str(exception)))
         else:
-            logging.info('[File] {0} -> {1}'.format(local_file, full_synapse_path))
+            logging.info('[{0}] {1} -> {2}'.format(log_success_prefix, local_file, full_synapse_path))
 
         return synapse_file
+
+    def _find_synapse_file(self, synapse_parent_id, local_file_path):
+        """Finds a Synapse file by its parent and local_file name."""
+        children = self._get_synapse_children(synapse_parent_id)
+
+        for child in children:
+            if child['name'] == os.path.basename(local_file_path):
+                syn_file = self._synapse_client.get(child['id'], downloadFile=False)
+                # Synapse can store a file with two names: 1) The entity name 2) the actual filename.
+                # Check that the actual filename matches the local file name to ensure we have the same file.
+                if syn_file['_file_handle']['fileName'] != os.path.basename(local_file_path):
+                    for find_child in children:
+                        if find_child == child:
+                            continue
+                        syn_child = self._synapse_client.get(find_child['id'], downloadFile=False)
+                        if syn_child['_file_handle']['fileName'] == os.path.basename(local_file_path):
+                            return syn_child
+                return syn_file
+
+        return None
+
+    LRU_MAXSIZE = (os.cpu_count() or 1) * 5
+
+    @functools.lru_cache(maxsize=LRU_MAXSIZE, typed=True)
+    def _get_synapse_children(self, synapse_parent_id):
+        """Gets the child files metadata for a parent Synapse container."""
+        return list(self._synapse_client.getChildren(synapse_parent_id, includeTypes=["file"]))
 
     def _set_synapse_parent(self, parent):
         with self._thread_lock:

@@ -1,8 +1,12 @@
+import hashlib
 import os
 import pathlib
 
 
 class Utils:
+    KB = 1024
+    MB = KB * KB
+    CHUNK_SIZE = 10 * MB
 
     @staticmethod
     def app_dir():
@@ -40,3 +44,14 @@ class Utils:
         """
         if not os.path.isdir(local_path):
             os.makedirs(local_path)
+
+    @staticmethod
+    def get_md5(local_path):
+        md5 = hashlib.md5()
+        with open(local_path, mode='rb') as fd:
+            while True:
+                chunk = fd.read(Utils.CHUNK_SIZE)
+                if not chunk:
+                    break
+                md5.update(chunk)
+        return md5.hexdigest()
