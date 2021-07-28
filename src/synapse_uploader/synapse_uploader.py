@@ -46,13 +46,7 @@ class SynapseUploader:
 
         self._thread_lock = threading.Lock()
         self._synapse_parents = {}
-        self.has_errors = False
-
-        if max_depth > self.MAX_SYNAPSE_DEPTH:
-            raise Exception('Maximum depth must be less than or equal to {0}.'.format(self.MAX_SYNAPSE_DEPTH))
-
-        if max_depth < self.MIN_SYNAPSE_DEPTH:
-            raise Exception('Maximum depth must be greater than or equal to {0}.'.format(self.MIN_SYNAPSE_DEPTH))
+        self.errors = []
 
         if remote_path:
             self._remote_path = remote_path.replace(' ', '').lstrip(os.sep).rstrip(os.sep)
@@ -62,13 +56,20 @@ class SynapseUploader:
     def execute(self):
         self.start_time = datetime.now()
 
+        if self._max_depth > self.MAX_SYNAPSE_DEPTH:
+            self._show_error('Maximum depth must be less than or equal to {0}.'.format(self.MAX_SYNAPSE_DEPTH))
+            return self
+
+        if self._max_depth < self.MIN_SYNAPSE_DEPTH:
+            self._show_error('Maximum depth must be greater than or equal to {0}.'.format(self.MIN_SYNAPSE_DEPTH))
+            return self
+
         if not self._synapse_login():
-            self.has_errors = True
-            logging.error('Could not log into Synapse. Aborting.')
-            return
+            self._show_error('Could not log into Synapse. Aborting.')
+            return self
 
         if self._force_upload:
-            print('Forcing upload. Entity versions will be incremented.')
+            logging.info('Forcing upload. Entity versions will be incremented.')
 
         remote_entity = self._synapse_client.get(self._synapse_entity_id, downloadFile=False)
         remote_entity_is_file = False
@@ -83,7 +84,8 @@ class SynapseUploader:
             remote_type = 'File'
             remote_entity_is_file = True
         else:
-            raise Exception('Remote entity must be a project, folder, or file. Found {0}'.format(type(remote_entity)))
+            self._show_error('Remote entity must be a project, folder, or file. Found {0}'.format(type(remote_entity)))
+            return self
 
         local_entity_is_file = False
 
@@ -93,14 +95,16 @@ class SynapseUploader:
         elif os.path.isdir(self._local_path):
             local_type = 'Directory'
         else:
-            raise Exception('Local entity must be a directory or file: {0}'.format(self._local_path))
+            self._show_error('Local entity must be a directory or file: {0}'.format(self._local_path))
+            return self
 
         if remote_entity_is_file and not local_entity_is_file:
-            raise Exception('Local entity must be a file when remote entity is a file: {0}'.format(self._local_path))
+            self._show_error('Local entity must be a file when remote entity is a file: {0}'.format(self._local_path))
+            return self
 
         if remote_entity_is_file and self._remote_path:
-            raise Exception(
-                'Cannot specify a remote path when remote entity is a file: {0}'.format(self._local_path))
+            self._show_error('Cannot specify a remote path when remote entity is a file: {0}'.format(self._local_path))
+            return self
 
         logging.info('Uploading to {0}: {1} ({2})'.format(remote_type, remote_entity.name, remote_entity.id))
         logging.info('Uploading {0}: {1}'.format(local_type, self._local_path))
@@ -109,8 +113,9 @@ class SynapseUploader:
             remote_file_name = remote_entity['_file_handle']['fileName']
             local_file_name = os.path.basename(self._local_path)
             if local_file_name != remote_file_name:
-                raise Exception('Local filename: {0} does not match remote file name: {1}'.format(local_file_name,
-                                                                                                  remote_file_name))
+                self._show_error('Local filename: {0} does not match remote file name: {1}'.format(local_file_name,
+                                                                                                   remote_file_name))
+                return self
 
             remote_parent = self._synapse_client.get(remote_entity.get('parentId'))
             self._set_synapse_parent(remote_parent)
@@ -134,11 +139,7 @@ class SynapseUploader:
         self.end_time = datetime.now()
         logging.info('')
         logging.info('Run time: {0}'.format(self.end_time - self.start_time))
-
-        if self.has_errors:
-            logging.error('Finished with errors. Please see log file.')
-        else:
-            logging.info('Finished successfully.')
+        return self
 
     def _synapse_login(self):
         if self._synapse_client and self._synapse_client.credentials:
@@ -161,15 +162,13 @@ class SynapseUploader:
                 self._synapse_client.login(self._username, self._password, silent=True)
             except Exception as ex:
                 self._synapse_client = None
-                self.has_errors = True
-                logging.error('Synapse login failed: {0}'.format(str(ex)))
+                self._show_error('Synapse login failed: {0}'.format(str(ex)))
 
         return self._synapse_client is not None
 
     def _upload_folder(self, executor, local_path, synapse_parent):
         if not synapse_parent:
-            self.has_errors = True
-            logging.error('Parent not found, cannot execute folder: {0}'.format(local_path))
+            self._show_error('Parent not found, cannot execute folder: {0}'.format(local_path))
             return
 
         parent = synapse_parent
@@ -201,8 +200,7 @@ class SynapseUploader:
         synapse_folder = None
 
         if not synapse_parent:
-            self.has_errors = True
-            logging.error('Parent not found, cannot create folder: {0}'.format(path))
+            self._show_error('Parent not found, cannot create folder: {0}'.format(path))
             return synapse_folder
 
         folder_name = os.path.basename(path)
@@ -227,8 +225,7 @@ class SynapseUploader:
                     time.sleep(sleep_time)
 
         if exception:
-            self.has_errors = True
-            logging.error('[Folder FAILED] {0} -> {1} : {2}'.format(path, full_synapse_path, str(exception)))
+            self._show_error('[Folder FAILED] {0} -> {1} : {2}'.format(path, full_synapse_path, str(exception)))
         else:
             logging.info('[Folder] {0} -> {1}'.format(path, full_synapse_path))
             self._set_synapse_parent(synapse_folder)
@@ -239,8 +236,7 @@ class SynapseUploader:
         synapse_file = None
 
         if not synapse_parent:
-            self.has_errors = True
-            logging.error('Parent not found, cannot execute file: {0}'.format(local_file))
+            self._show_error('Parent not found, cannot execute file: {0}'.format(local_file))
             return synapse_file
 
         # Skip empty files since these will error when uploading via the synapseclient.
@@ -287,8 +283,7 @@ class SynapseUploader:
                     time.sleep(sleep_time)
 
         if exception:
-            self.has_errors = True
-            logging.error('[File FAILED] {0} -> {1} : {2}'.format(local_file, full_synapse_path, str(exception)))
+            self._show_error('[File FAILED] {0} -> {1} : {2}'.format(local_file, full_synapse_path, str(exception)))
         else:
             logging.info('[{0}] {1} -> {2}'.format(log_success_prefix, local_file, full_synapse_path))
 
@@ -359,3 +354,7 @@ class SynapseUploader:
         files.sort(key=lambda f: f.name)
 
         return dirs, files
+
+    def _show_error(self, msg):
+        self.errors.append(msg)
+        logging.error(msg)

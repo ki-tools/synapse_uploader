@@ -71,15 +71,13 @@ def test_max_depth_value():
     syn_uploader = SynapseUploader('None', 'None', max_depth=max_depth)
     assert syn_uploader._max_depth == max_depth
 
-    with pytest.raises(Exception) as ex:
-        SynapseUploader('None', 'None', max_depth=(SynapseUploader.MAX_SYNAPSE_DEPTH + 1))
-    assert str(ex.value) == 'Maximum depth must be less than or equal to 10000.'
+    errors = SynapseUploader('None', 'None', max_depth=(SynapseUploader.MAX_SYNAPSE_DEPTH + 1)).execute().errors
+    assert 'Maximum depth must be less than or equal to 10000.' in errors
 
 
 def test_min_depth_value():
-    with pytest.raises(Exception) as ex:
-        SynapseUploader('None', 'None', max_depth=(SynapseUploader.MIN_SYNAPSE_DEPTH - 1))
-    assert str(ex.value) == 'Maximum depth must be greater than or equal to 2.'
+    errors = SynapseUploader('None', 'None', max_depth=(SynapseUploader.MIN_SYNAPSE_DEPTH - 1)).execute().errors
+    assert 'Maximum depth must be greater than or equal to 2.' in errors
 
 
 def test_username_value():
@@ -299,24 +297,19 @@ def test_upload_file(syn_client, syn_test_helper, new_syn_project, new_temp_file
     assert len(syn_folders) == 0
     assert file_name in syn_file_names
 
-    # Test exceptions
-    with pytest.raises(Exception) as ex:
-        SynapseUploader(syn_file.id, new_temp_dir, synapse_client=syn_client).execute()
-    assert 'Local entity must be a file when remote entity is a file:' in str(ex.value)
+    # Test validations
+    errors = SynapseUploader(syn_file.id, new_temp_dir, synapse_client=syn_client).execute().errors
+    assert 'Local entity must be a file when remote entity is a file: {0}'.format(new_temp_dir) in errors
 
-    with pytest.raises(Exception) as ex:
-        SynapseUploader(syn_file.id, new_temp_file, remote_path='/test', synapse_client=syn_client).execute()
-    assert 'Cannot specify a remote path when remote entity is a file:' in str(ex.value)
+    errors = SynapseUploader(syn_file.id, new_temp_file, remote_path='/test',
+                             synapse_client=syn_client).execute().errors
+    assert 'Cannot specify a remote path when remote entity is a file: {0}'.format(new_temp_file) in errors
 
-    # Local filename: {0} does not match remote file name:
     other_temp_file = mkfile(new_temp_dir, syn_test_helper.uniq_name())
     other_temp_file_name = os.path.basename(other_temp_file)
-    other_syn_file = syn_test_helper.create_file(name=other_temp_file_name,
-                                                 path=other_temp_file,
-                                                 parent=new_syn_project)
-    with pytest.raises(Exception) as ex:
-        SynapseUploader(syn_file.id, other_temp_file, synapse_client=syn_client).execute()
-    assert 'Local filename: {0} does not match remote file name:'.format(other_temp_file_name) in str(ex.value)
+    errors = SynapseUploader(syn_file.id, other_temp_file, synapse_client=syn_client).execute().errors
+    assert 'Local filename: {0} does not match remote file name: {1}'.format(other_temp_file_name,
+                                                                             syn_file.name) in errors
 
 
 def test_force_upload(syn_client, syn_test_helper, new_syn_project, new_temp_file):

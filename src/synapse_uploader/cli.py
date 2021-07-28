@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import argparse
 from datetime import datetime
@@ -102,19 +103,33 @@ def main():
 
     print('Logging output to: {0}'.format(log_filename))
 
-    SynapseUploader(
-        args.entity_id,
-        args.local_path,
-        remote_path=args.remote_folder_path,
-        max_depth=args.depth,
-        max_threads=args.threads,
-        username=args.username,
-        password=args.password,
-        force_upload=args.force_upload,
-        cache_dir=args.cache_dir
-    ).execute()
-
-    print('Output logged to: {0}'.format(log_filename))
+    try:
+        cmd = SynapseUploader(
+            args.entity_id,
+            args.local_path,
+            remote_path=args.remote_folder_path,
+            max_depth=args.depth,
+            max_threads=args.threads,
+            username=args.username,
+            password=args.password,
+            force_upload=args.force_upload,
+            cache_dir=args.cache_dir
+        )
+        cmd.execute()
+        if cmd.errors:
+            logging.error('Finished with errors.')
+            for error in cmd.errors:
+                print(error)
+            print('Output logged to: {0}'.format(log_filename))
+            sys.exit(1)
+        else:
+            logging.info('Finished successfully.')
+            print('Output logged to: {0}'.format(log_filename))
+            sys.exit(0)
+    except Exception as ex:
+        logging.error(ex)
+        print('Output logged to: {0}'.format(log_filename))
+        sys.exit(1)
 
 
 if __name__ == "__main__":

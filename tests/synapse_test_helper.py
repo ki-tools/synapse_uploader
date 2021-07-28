@@ -17,7 +17,7 @@ class SynapseTestHelper:
             syn_user = os.getenv('SYNAPSE_USERNAME')
             syn_pass = os.getenv('SYNAPSE_PASSWORD')
 
-            self._synapse_client = synapseclient.Synapse()
+            self._synapse_client = synapseclient.Synapse(skip_checks=True)
             self._synapse_client.login(syn_user, syn_pass, silent=True)
 
         return self._synapse_client
