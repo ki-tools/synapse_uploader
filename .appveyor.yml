@@ -7,6 +7,7 @@ environment:
 
 install:
   - set PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
+  - pip install --upgrade pip
   - pip install pipenv
   - pipenv --python=%PYTHON%\\python.exe
   - pipenv lock -r >> requirements.txt
