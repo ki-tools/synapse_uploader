@@ -6,6 +6,7 @@ from datetime import datetime
 from ._version import __version__
 from .synapse_uploader import SynapseUploader
 from .utils import Utils
+from synapsis import cli as synapsis_cli
 
 
 class LogFilter(logging.Filter):
@@ -24,6 +25,7 @@ class LogFilter(logging.Filter):
 
 def main():
     parser = argparse.ArgumentParser()
+    synapsis_cli.inject(parser)
     parser.add_argument('--version', action='version', version='%(prog)s {0}'.format(__version__))
     parser.add_argument('entity_id',
                         metavar='entity-id',
@@ -45,14 +47,6 @@ def main():
     parser.add_argument('-t', '--threads',
                         help='The maximum number of threads to use.',
                         type=int,
-                        default=None)
-
-    parser.add_argument('-u', '--username',
-                        help='Synapse username.',
-                        default=None)
-
-    parser.add_argument('-p', '--password',
-                        help='Synapse password.',
                         default=None)
 
     parser.add_argument('-ll', '--log-level',
@@ -104,16 +98,18 @@ def main():
     print('Logging output to: {0}'.format(log_filename))
 
     try:
+        cache_dir = args.cache_dir
+        if cache_dir:
+            cache_dir = os.path.join(cache_dir, '.synapseCache')
+
+        synapsis_cli.configure(args, synapse_args={'cache_root_dir': cache_dir, 'multi_threaded': False}, login=True)
         cmd = SynapseUploader(
             args.entity_id,
             args.local_path,
             remote_path=args.remote_folder_path,
             max_depth=args.depth,
             max_threads=args.threads,
-            username=args.username,
-            password=args.password,
-            force_upload=args.force_upload,
-            cache_dir=args.cache_dir
+            force_upload=args.force_upload
         )
         cmd.execute()
         if cmd.errors:

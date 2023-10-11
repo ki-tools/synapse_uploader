@@ -1,5 +1,4 @@
 import os
-import getpass
 import time
 import random
 import concurrent.futures
@@ -9,6 +8,7 @@ import functools
 from datetime import datetime
 import synapseclient as syn
 from .utils import Utils
+from synapsis import Synapsis
 
 
 class SynapseUploader:
@@ -24,22 +24,14 @@ class SynapseUploader:
                  remote_path=None,
                  max_depth=MAX_SYNAPSE_DEPTH,
                  max_threads=None,
-                 username=None,
-                 password=None,
-                 synapse_client=None,
-                 force_upload=False,
-                 cache_dir=None):
+                 force_upload=False):
 
         self._synapse_entity_id = synapse_entity_id
         self._local_path = Utils.expand_path(local_path)
         self._remote_path = remote_path
         self._max_depth = max_depth
         self._max_threads = max_threads
-        self._username = username
-        self._password = password
-        self._synapse_client = synapse_client
         self._force_upload = force_upload
-        self._cache_dir = cache_dir
 
         self.start_time = None
         self.end_time = None
@@ -64,28 +56,17 @@ class SynapseUploader:
             self._show_error('Maximum depth must be greater than or equal to {0}.'.format(self.MIN_SYNAPSE_DEPTH))
             return self
 
-        if not self._synapse_login():
-            self._show_error('Could not log into Synapse. Aborting.')
-            return self
-
         if self._force_upload:
             logging.info('Forcing upload. Entity versions will be incremented.')
 
-        remote_entity = self._synapse_client.get(self._synapse_entity_id, downloadFile=False)
-        remote_entity_is_file = False
-
-        if isinstance(remote_entity, syn.Project):
-            remote_type = 'Project'
-            self._set_synapse_parent(remote_entity)
-        elif isinstance(remote_entity, syn.Folder):
-            remote_type = 'Folder'
-            self._set_synapse_parent(remote_entity)
-        elif isinstance(remote_entity, syn.File):
-            remote_type = 'File'
-            remote_entity_is_file = True
-        else:
+        remote_entity = Synapsis.get(self._synapse_entity_id, downloadFile=False)
+        remote_entity_type = Synapsis.ConcreteTypes.get(remote_entity)
+        if not (remote_entity_type.is_project or remote_entity_type.is_folder or remote_entity_type.is_file):
             self._show_error('Remote entity must be a project, folder, or file. Found {0}'.format(type(remote_entity)))
             return self
+
+        if remote_entity_type.is_project or remote_entity_type.is_folder:
+            self._set_synapse_parent(remote_entity)
 
         local_entity_is_file = False
 
@@ -98,18 +79,19 @@ class SynapseUploader:
             self._show_error('Local entity must be a directory or file: {0}'.format(self._local_path))
             return self
 
-        if remote_entity_is_file and not local_entity_is_file:
+        if remote_entity_type.is_file and not local_entity_is_file:
             self._show_error('Local entity must be a file when remote entity is a file: {0}'.format(self._local_path))
             return self
 
-        if remote_entity_is_file and self._remote_path:
+        if remote_entity_type.is_file and self._remote_path:
             self._show_error('Cannot specify a remote path when remote entity is a file: {0}'.format(self._local_path))
             return self
 
-        logging.info('Uploading to {0}: {1} ({2})'.format(remote_type, remote_entity.name, remote_entity.id))
+        logging.info(
+            'Uploading to {0}: {1} ({2})'.format(remote_entity_type.name, remote_entity.name, remote_entity.id))
         logging.info('Uploading {0}: {1}'.format(local_type, self._local_path))
 
-        if remote_entity_is_file:
+        if remote_entity_type.is_file:
             remote_file_name = remote_entity['_file_handle']['fileName']
             local_file_name = os.path.basename(self._local_path)
             if local_file_name != remote_file_name:
@@ -117,7 +99,7 @@ class SynapseUploader:
                                                                                                    remote_file_name))
                 return self
 
-            remote_parent = self._synapse_client.get(remote_entity.get('parentId'))
+            remote_parent = Synapsis.get(remote_entity.get('parentId'))
             self._set_synapse_parent(remote_parent)
             self._upload_file_to_synapse(self._local_path, remote_parent)
         else:
@@ -140,31 +122,6 @@ class SynapseUploader:
         logging.info('')
         logging.info('Run time: {0}'.format(self.end_time - self.start_time))
         return self
-
-    def _synapse_login(self):
-        if self._synapse_client and self._synapse_client.credentials:
-            logging.info('Already logged into Synapse.')
-        else:
-            self._username = self._username or os.getenv('SYNAPSE_USERNAME')
-            self._password = self._password or os.getenv('SYNAPSE_PASSWORD')
-
-            if not self._username:
-                self._username = input('Synapse username: ')
-
-            if not self._password:
-                self._password = getpass.getpass(prompt='Synapse password: ')
-
-            logging.info('Logging into Synapse as: {0}'.format(self._username))
-            try:
-                self._synapse_client = syn.Synapse(skip_checks=True)
-                if self._cache_dir:
-                    self._synapse_client.cache.cache_root_dir = os.path.join(self._cache_dir, '.synapseCache')
-                self._synapse_client.login(self._username, self._password, silent=True)
-            except Exception as ex:
-                self._synapse_client = None
-                self._show_error('Synapse login failed: {0}'.format(str(ex)))
-
-        return self._synapse_client is not None
 
     def _upload_folder(self, executor, local_path, synapse_parent):
         if not synapse_parent:
@@ -214,8 +171,8 @@ class SynapseUploader:
             try:
                 attempt_number += 1
                 exception = None
-                synapse_folder = self._synapse_client.store(syn.Folder(name=folder_name, parent=synapse_parent),
-                                                            forceVersion=self._force_upload)
+                synapse_folder = Synapsis.store(syn.Folder(name=folder_name, parent=synapse_parent),
+                                                forceVersion=self._force_upload)
             except Exception as ex:
                 exception = ex
                 logging.error('[Folder ERROR] {0} -> {1} : {2}'.format(path, full_synapse_path, str(ex)))
@@ -263,7 +220,7 @@ class SynapseUploader:
                 if file_obj:
                     file_obj.path = local_file
                     if self._force_upload:
-                        self._synapse_client.cache.remove(file_obj)
+                        Synapsis.cache.remove(file_obj)
                     else:
                         if file_obj['_file_handle']['contentSize'] == local_file_size and \
                                 file_obj['_file_handle']['contentMd5'] == Utils.get_md5(local_file):
@@ -273,7 +230,7 @@ class SynapseUploader:
                     file_obj = syn.File(path=local_file, name=file_name, parent=synapse_parent)
 
                 if needs_upload or self._force_upload:
-                    synapse_file = self._synapse_client.store(file_obj, forceVersion=self._force_upload)
+                    synapse_file = Synapsis.store(file_obj, forceVersion=self._force_upload)
             except Exception as ex:
                 exception = ex
                 logging.error('[File ERROR] {0} -> {1} : {2}'.format(local_file, full_synapse_path, str(ex)))
@@ -295,14 +252,14 @@ class SynapseUploader:
 
         for child in children:
             if child['name'] == os.path.basename(local_file_path):
-                syn_file = self._synapse_client.get(child['id'], downloadFile=False)
+                syn_file = Synapsis.get(child['id'], downloadFile=False)
                 # Synapse can store a file with two names: 1) The entity name 2) the actual filename.
                 # Check that the actual filename matches the local file name to ensure we have the same file.
                 if syn_file['_file_handle']['fileName'] != os.path.basename(local_file_path):
                     for find_child in children:
                         if find_child == child:
                             continue
-                        syn_child = self._synapse_client.get(find_child['id'], downloadFile=False)
+                        syn_child = Synapsis.get(find_child['id'], downloadFile=False)
                         if syn_child['_file_handle']['fileName'] == os.path.basename(local_file_path):
                             return syn_child
                 return syn_file
@@ -314,7 +271,7 @@ class SynapseUploader:
     @functools.lru_cache(maxsize=LRU_MAXSIZE, typed=True)
     def _get_synapse_children(self, synapse_parent_id):
         """Gets the child files metadata for a parent Synapse container."""
-        return list(self._synapse_client.getChildren(synapse_parent_id, includeTypes=["file"]))
+        return list(Synapsis.getChildren(synapse_parent_id, includeTypes=["file"]))
 
     def _set_synapse_parent(self, parent):
         with self._thread_lock:

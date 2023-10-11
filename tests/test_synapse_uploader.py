@@ -1,9 +1,7 @@
+import pytest
 import os
 import uuid
-import getpass
-import pytest
-import synapseclient as syn
-from src.synapse_uploader.synapse_uploader import SynapseUploader
+from synapse_uploader.synapse_uploader import SynapseUploader
 
 
 def mkdir(*path_segments):
@@ -80,82 +78,10 @@ def test_min_depth_value():
     assert 'Maximum depth must be greater than or equal to 2.' in errors
 
 
-def test_username_value():
-    username = 'test_user'
-    syn_uploader = SynapseUploader('None', 'None', username=username)
-    assert syn_uploader._username == username
-
-
-def test_password_value():
-    password = 'test_password'
-    syn_uploader = SynapseUploader('None', 'None', password=password)
-    assert syn_uploader._password == password
-
-
 def test_force_upload_value():
     for b_value in [True, False]:
         syn_uploader = SynapseUploader('None', 'None', force_upload=b_value)
         assert syn_uploader._force_upload == b_value
-
-
-def test_synapse_client_value():
-    client = object()
-    syn_uploader = SynapseUploader('None', 'None', synapse_client=client)
-    assert syn_uploader._synapse_client == client
-
-
-def test_cache_dir(new_temp_dir):
-    syn_uploader = SynapseUploader('None', 'None', cache_dir=new_temp_dir)
-    syn_uploader._synapse_login() is True
-    full_cache_dir = os.path.join(new_temp_dir, '.synapseCache')
-    assert syn_uploader._synapse_client.cache.cache_root_dir == full_cache_dir
-    assert os.path.isdir(full_cache_dir)
-
-
-def test_login(syn_client, monkeypatch, mocker):
-    # Uses ENV
-    syn_uploader = SynapseUploader('None', 'None')
-    syn_uploader._synapse_login() is True
-    assert syn_uploader._synapse_client is not None
-
-    # Uses the passed in params
-    syn_uploader = SynapseUploader('None', 'None',
-                                   username=os.environ['SYNAPSE_USERNAME'], password=os.environ['SYNAPSE_PASSWORD'])
-    assert syn_uploader._synapse_login() is True
-    assert syn_uploader._synapse_client is not None
-
-    # Uses the passed in client
-    syn_uploader = SynapseUploader('None', 'None', synapse_client=syn_client)
-    syn_uploader._synapse_login() is True
-    assert syn_uploader._synapse_client == syn_client
-
-    # Fails to _synapse_login
-    syn_uploader = SynapseUploader('None', 'None', username=uuid.uuid4(), password=uuid.uuid4())
-    assert syn_uploader._synapse_login() is False
-    assert syn_uploader._synapse_client is None
-
-    # Prompts for the username and password
-    with monkeypatch.context() as mp:
-        mp.delenv('SYNAPSE_USERNAME')
-        mp.delenv('SYNAPSE_PASSWORD')
-
-        mock_username = uuid.uuid4()
-        mock_password = uuid.uuid4()
-
-        mocker.patch('builtins.input', return_value=mock_username)
-        mocker.patch('getpass.getpass', return_value=mock_password)
-        syn_uploader = SynapseUploader('None', 'None')
-        syn_uploader._synapse_login()
-        assert syn_uploader._username == mock_username
-        assert syn_uploader._password == mock_password
-        input.assert_called_once()
-        getpass.getpass.assert_called_once()
-
-
-def test_upload_bad_credentials():
-    syn_uploader = SynapseUploader('None', 'None', username=uuid.uuid4(), password=uuid.uuid4())
-    syn_uploader.execute()
-    assert syn_uploader._synapse_client is None
 
 
 def test_upload_remote_path(syn_client, new_syn_project, new_temp_dir):
@@ -179,7 +105,7 @@ def test_upload_remote_path(syn_client, new_syn_project, new_temp_dir):
     folder2 = mkdir(folder1, 'folder2')
     mkfile(folder2, 'file3')
 
-    SynapseUploader(new_syn_project.id, new_temp_dir, remote_path=remote_path, synapse_client=syn_client).execute()
+    SynapseUploader(new_syn_project.id, new_temp_dir, remote_path=remote_path).execute()
 
     parent = new_syn_project
     for segment in path_segments:
@@ -216,7 +142,7 @@ def test_upload_remote_path(syn_client, new_syn_project, new_temp_dir):
     assert syn_file_names == ['file3']
 
 
-def test_upload(syn_client, syn_test_helper, new_temp_dir):
+def test_upload(syn_client, synapse_test_helper, new_temp_dir):
     """
         Tests this scenario:
 
@@ -241,15 +167,17 @@ def test_upload(syn_client, syn_test_helper, new_temp_dir):
     mkfile(folder3, 'file6')
     mkfile(folder3, 'file7', content='')  # Empty files should NOT get uploaded.
 
-    project1 = syn_test_helper.create_project()
-    project2 = syn_test_helper.create_project()
+    project1 = synapse_test_helper.create_project()
+    project2 = synapse_test_helper.create_project()
 
     # Test uploading to a Project and Folder
-    upload_targets = [project1,
-                      syn_client.store(syn.Folder(name=syn_test_helper.uniq_name(), parent=project2))]
+    upload_targets = [
+        project1,
+        synapse_test_helper.create_folder(parent=project2)
+    ]
 
     for upload_target in upload_targets:
-        SynapseUploader(upload_target.id, new_temp_dir, synapse_client=syn_client).execute()
+        SynapseUploader(upload_target.id, new_temp_dir).execute()
 
         syn_files, syn_file_names = get_syn_files(syn_client, upload_target)
         syn_folders, _ = get_syn_folders(syn_client, upload_target)
@@ -285,11 +213,11 @@ def test_upload(syn_client, syn_test_helper, new_temp_dir):
         assert syn_file
 
 
-def test_upload_file(syn_client, syn_test_helper, new_syn_project, new_temp_file, new_temp_dir):
+def test_upload_file(syn_client, synapse_test_helper, new_syn_project, new_temp_file, new_temp_dir):
     file_name = os.path.basename(new_temp_file)
-    syn_file = syn_test_helper.create_file(name=file_name, path=new_temp_file, parent=new_syn_project)
+    syn_file = synapse_test_helper.create_file(name=file_name, path=new_temp_file, parent=new_syn_project)
 
-    SynapseUploader(syn_file.id, new_temp_file, synapse_client=syn_client).execute()
+    SynapseUploader(syn_file.id, new_temp_file).execute()
 
     syn_files, syn_file_names = get_syn_files(syn_client, new_syn_project)
     syn_folders, _ = get_syn_folders(syn_client, new_syn_project)
@@ -298,35 +226,34 @@ def test_upload_file(syn_client, syn_test_helper, new_syn_project, new_temp_file
     assert file_name in syn_file_names
 
     # Test validations
-    errors = SynapseUploader(syn_file.id, new_temp_dir, synapse_client=syn_client).execute().errors
+    errors = SynapseUploader(syn_file.id, new_temp_dir).execute().errors
     assert 'Local entity must be a file when remote entity is a file: {0}'.format(new_temp_dir) in errors
 
-    errors = SynapseUploader(syn_file.id, new_temp_file, remote_path='/test',
-                             synapse_client=syn_client).execute().errors
+    errors = SynapseUploader(syn_file.id, new_temp_file, remote_path='/test').execute().errors
     assert 'Cannot specify a remote path when remote entity is a file: {0}'.format(new_temp_file) in errors
 
-    other_temp_file = mkfile(new_temp_dir, syn_test_helper.uniq_name())
+    other_temp_file = mkfile(new_temp_dir, synapse_test_helper.uniq_name())
     other_temp_file_name = os.path.basename(other_temp_file)
-    errors = SynapseUploader(syn_file.id, other_temp_file, synapse_client=syn_client).execute().errors
+    errors = SynapseUploader(syn_file.id, other_temp_file).execute().errors
     assert 'Local filename: {0} does not match remote file name: {1}'.format(other_temp_file_name,
                                                                              syn_file.name) in errors
 
 
-def test_force_upload(syn_client, syn_test_helper, new_syn_project, new_temp_file):
+def test_force_upload(syn_client, synapse_test_helper, new_syn_project, new_temp_file):
     annotations = {"one": ["two"]}
 
     file_name = os.path.basename(new_temp_file)
-    syn_file = syn_test_helper.create_file(name=file_name, path=new_temp_file, parent=new_syn_project,
-                                           annotations=annotations)
+    syn_file = synapse_test_helper.create_file(name=file_name, path=new_temp_file, parent=new_syn_project,
+                                               annotations=annotations)
     assert syn_file.versionNumber == 1
     assert syn_file.annotations == annotations
 
-    SynapseUploader(syn_file.id, new_temp_file, synapse_client=syn_client).execute()
+    SynapseUploader(syn_file.id, new_temp_file).execute()
     syn_file = syn_client.get(syn_file.id)
     assert syn_file.versionNumber == 1
     assert syn_file.annotations == annotations
 
-    SynapseUploader(syn_file.id, new_temp_file, force_upload=True, synapse_client=syn_client).execute()
+    SynapseUploader(syn_file.id, new_temp_file, force_upload=True).execute()
     syn_file = syn_client.get(syn_file.id)
     assert syn_file.versionNumber == 2
     assert syn_file.annotations == annotations
@@ -375,7 +302,7 @@ def test_upload_max_depth(syn_client, new_syn_project, new_temp_dir):
             mkfile(folder_path, 'file1-1'.format(i))
             mkfile(folder_path, 'file1-2'.format(i))
 
-    SynapseUploader(new_syn_project.id, new_temp_dir, max_depth=3, synapse_client=syn_client).execute()
+    SynapseUploader(new_syn_project.id, new_temp_dir, max_depth=3).execute()
 
     syn_files, syn_file_names = get_syn_files(syn_client, new_syn_project)
     assert len(syn_files) == 2

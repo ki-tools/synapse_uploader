@@ -19,8 +19,10 @@ var/
 
 .idea
 .venv
+.env
 .vscode
 .coverage
+.tox
 htmlcov
 tests/private.*
 *.log
